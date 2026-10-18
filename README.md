@@ -1,6 +1,6 @@
 # Klarwert
 
-Long-horizon money calculations in euro, with Munich as the default market. The app is a static site and can be hosted on GitHub Pages or Cloudflare Pages.
+Long-horizon money calculations in euro, with Munich as the default market. The site is published at [recreational-engineering.github.io/finance-calc](https://recreational-engineering.github.io/finance-calc/).
 
 Three tools are included:
 
@@ -17,6 +17,8 @@ npm install
 npm test
 npm run dev
 ```
+
+The dev server uses the same `/finance-calc/` path as the published site: [http://localhost:5173/finance-calc/](http://localhost:5173/finance-calc/).
 
 `npm run build` writes the static site to `dist/`.
 
@@ -61,18 +63,12 @@ The models do not import React. A tool is safe to extend when its tests describe
 
 Sources for the starting points are named in the tool models (`src/tools/housing/model.ts`, `src/tools/leasing/model.ts`). They are assumptions for a calculator, not offers.
 
-## Host it for free
+## Hosting
 
-Assets use relative paths, so the same `dist/` folder works in either place. Routing is a hash (`/#/rent`), which needs no server rewrites.
-
-### Cloudflare Pages
-
-- Build command: `npm run build`
-- Output directory: `dist`
-- Node: 22
+The production build is rooted at `/finance-calc/`, which is the GitHub project-site path. Routes use a hash (`/#/rent`), so the host does not need rewrite rules.
 
 ### GitHub Pages
 
-The workflow in `.github/workflows/pages.yml` publishes `dist/` on every push to `main`. In the repository settings, set Pages → Build and deployment → **GitHub Actions**.
+[https://recreational-engineering.github.io/finance-calc/](https://recreational-engineering.github.io/finance-calc/)
 
-`.github/workflows/ci.yml` runs the tests and the production build on pull requests.
+`.github/workflows/pages.yml` publishes `dist/` on every push to `main`. In the repository settings, Pages → Build and deployment must be **GitHub Actions**. `.github/workflows/ci.yml` runs the tests and the production build on pull requests.
