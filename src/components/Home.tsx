@@ -8,8 +8,9 @@ export function Home() {
       <h1>Calculators for decisions that take years.</h1>
       <p className="lede">
         Klarwert is a small platform for long-horizon money maths. Everything is in euro.
-        The worked examples use the Munich market: a savings plan, buying a flat versus
-        renting it, and buying a car versus leasing it.
+        The worked examples use the Munich market: a savings plan, a long-term return for
+        ETFs you can buy at DKB, buying a flat versus renting it, and buying a car versus
+        leasing it.
       </p>
       <ol className="tool-grid">
         {tools.map((tool, index) => (

@@ -18,6 +18,15 @@ export const tools: ToolMeta[] = [
     outcome: 'A stacked chart of capital by entry, plus each entry’s share of the total.',
   },
   {
+    id: 'etf',
+    path: '/etf',
+    name: 'ETFs',
+    eyebrow: 'Expected return',
+    summary:
+      'Pick an ETF or ETC you can buy at DKB. The page estimates a long-term yearly return from the market’s history and from dividends, growth, and today’s prices.',
+    outcome: 'A planning rate the retirement plan can use as the interest on that entry.',
+  },
+  {
     id: 'rent',
     path: '/rent',
     name: 'Rent',

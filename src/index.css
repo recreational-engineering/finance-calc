@@ -133,7 +133,7 @@ code {
   padding: 0;
   margin: 28px 0;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 14px;
 }
 .tool-card {
@@ -226,6 +226,9 @@ code {
 .tooltip-share { color: #c9bfb0; font-weight: 400; }
 .unit { color: var(--ink-soft); font-size: 0.82rem; white-space: nowrap; }
 .hint { color: var(--ink-soft); font-size: 0.8rem; }
+.lone-hint { margin: 10px 2px 0; }
+.line-note { display: block; margin-top: 2px; font-weight: 400; white-space: normal; max-width: 52ch; }
+.breakdown th { white-space: normal; }
 
 .check {
   display: flex;
@@ -260,6 +263,44 @@ code {
   color: var(--danger);
   padding-left: 0;
 }
+.inline-link {
+  border: 0;
+  background: transparent;
+  color: var(--teal);
+  padding: 0;
+  font-weight: 600;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip-row button {
+  border: 1px solid var(--line);
+  background: var(--white);
+  border-radius: 999px;
+  padding: 6px 10px;
+}
+.chip-row button[aria-pressed='true'] { background: var(--ink); color: #f6f1e8; border-color: var(--ink); }
+.etf-hits {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  gap: 6px;
+}
+.etf-hits button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--white);
+  border-radius: 12px;
+  padding: 8px 10px;
+}
+.etf-hits button[aria-pressed='true'] { border-color: var(--teal); box-shadow: inset 3px 0 0 var(--teal); }
+.etf-hits small { color: var(--ink-soft); }
+.etf-empty { color: var(--ink-soft); padding: 8px 2px; }
+.method .secondary { margin-top: 12px; }
 .primary { background: var(--teal); color: white; border: 0; }
 .secondary { background: transparent; border: 1px solid var(--line); }
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }

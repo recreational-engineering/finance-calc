@@ -1,11 +1,27 @@
 import { formatShare, monthLabel } from '../../platform/format';
 import { effectiveMonthlyRate, finiteOr } from '../../platform/rates';
+import { DEFAULT_ASSUMPTIONS } from '../etf-returns/assumptions';
+import { requireEtf } from '../etf-returns/catalog';
+import { estimateEtf, planningRatePercent } from '../etf-returns/model';
 
 export interface SavingsEntry {
   id: string;
   name: string;
   monthlyPayment: number;
   yearlyInterestPercent: number;
+  /** Set when the interest came from an ETF planning rate. */
+  isin?: string;
+}
+
+function etfEntry(isin: string, monthlyPayment: number): SavingsEntry {
+  const product = requireEtf(isin);
+  return {
+    id: isin,
+    isin,
+    name: product.shortName,
+    monthlyPayment,
+    yearlyInterestPercent: planningRatePercent(estimateEtf(product, DEFAULT_ASSUMPTIONS)),
+  };
 }
 
 export interface RetirementInput {
@@ -45,9 +61,11 @@ export const DEFAULT_RETIREMENT: RetirementInput = {
   startDate: '2026-10-01',
   years: 30,
   entries: [
-    { id: 'msci', name: 'MSCI World', monthlyPayment: 600, yearlyInterestPercent: 7 },
-    { id: 'pension', name: 'Company pension', monthlyPayment: 250, yearlyInterestPercent: 4 },
-    { id: 'deposit', name: 'Fixed deposit', monthlyPayment: 150, yearlyInterestPercent: 2 },
+    etfEntry('FR0014010HV4', 200),
+    etfEntry('IE00BM67HM91', 200),
+    etfEntry('IE000ROSD5J6', 200),
+    etfEntry('LU1861132840', 50),
+    etfEntry('DE000A0S9GB0', 50),
   ],
 };
 
@@ -65,6 +83,7 @@ export function reviveRetirement(value: unknown): RetirementInput | null {
         name: typeof item.name === 'string' ? item.name : 'Entry',
         monthlyPayment: Number(item.monthlyPayment),
         yearlyInterestPercent: Number(item.yearlyInterestPercent),
+        isin: typeof item.isin === 'string' ? item.isin : undefined,
       },
     ];
   });
