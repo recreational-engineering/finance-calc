@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ComparisonReport } from '../../components/ComparisonReport';
 import type { MoneyPoint } from '../../components/Charts';
 import {
@@ -9,13 +9,14 @@ import {
   Warnings,
 } from '../../components/Fields';
 import { formatEur, formatPercentPoints } from '../../platform/format';
+import { COMPARE } from '../../platform/palette';
 import { comparisonNarrative, payoffLabel } from '../../platform/narrate';
 import { useStoredState } from '../../platform/storage';
 import { DEFAULT_HOUSING, reviveHousing, simulateHousing } from './model';
 
-const LEFT = '#0e6e6b';
-const RIGHT = '#c4622d';
-const EQUITY = '#234e70';
+const LEFT = COMPARE.left;
+const RIGHT = COMPARE.right;
+const EQUITY = COMPARE.equity;
 
 export function RentTool() {
   const [input, setInput, reset] = useStoredState(
@@ -24,13 +25,6 @@ export function RentTool() {
     reviveHousing,
   );
   const result = useMemo(() => simulateHousing(input), [input]);
-
-  useEffect(() => {
-    document.title = 'Rent — Klarwert';
-    return () => {
-      document.title = 'Klarwert — Munich finance tools';
-    };
-  }, []);
 
   const set = <K extends keyof typeof input>(key: K, value: (typeof input)[K]) => {
     setInput((current) => ({ ...current, [key]: value }));
@@ -79,8 +73,7 @@ export function RentTool() {
     <article className="workspace">
       <section className="panel">
         <header className="panel-intro">
-          <p className="eyebrow">Flat in Munich</p>
-          <h1>Rent</h1>
+          <p className="panel-kicker">Parameters</p>
           <p>
             Buy the flat, or rent it and put the free capital into an MSCI World ETF.
             Defaults follow Munich asking prices and new-lease rents for an existing

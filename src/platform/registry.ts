@@ -2,6 +2,7 @@ export interface ToolMeta {
   id: string;
   path: string;
   name: string;
+  channel: string;
   eyebrow: string;
   summary: string;
   outcome: string;
@@ -12,6 +13,7 @@ export const tools: ToolMeta[] = [
     id: 'retirement',
     path: '/retirement',
     name: 'Retirement',
+    channel: 'savings.plan',
     eyebrow: 'Savings plan',
     summary:
       'Start a plan on a chosen date and run it forward for as many years as you like. Each entry has a name, a monthly amount, and its own yearly interest.',
@@ -21,6 +23,7 @@ export const tools: ToolMeta[] = [
     id: 'rent',
     path: '/rent',
     name: 'Rent',
+    channel: 'housing.munich',
     eyebrow: 'Flat in Munich',
     summary:
       'Buy a flat, or rent the same flat and put every euro you did not have to tie up into an MSCI World ETF. Loan, upkeep, and appreciation start from Munich figures.',
@@ -30,6 +33,7 @@ export const tools: ToolMeta[] = [
     id: 'leasing',
     path: '/leasing',
     name: 'Leasing',
+    channel: 'vehicle.lease',
     eyebrow: 'Car',
     summary:
       'Buy a car for cash, or lease the same car and invest the free capital in an MSCI World ETF. Depreciation and the lease follow German market conventions.',

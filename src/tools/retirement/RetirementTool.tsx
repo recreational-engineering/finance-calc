@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ChartCard,
   StackedAreaChart,
   chartTicks,
   type MoneyPoint,
 } from '../../components/Charts';
-import { Facts, FieldGroup, NumberField, TextField, Warnings } from '../../components/Fields';
+import { Facts, FieldGroup, NumberField, StatusLine, TextField, Warnings } from '../../components/Fields';
 import { formatEur, formatPercentPoints, formatShare } from '../../platform/format';
 import { seriesColor } from '../../platform/palette';
 import { useStoredState } from '../../platform/storage';
@@ -24,13 +24,6 @@ export function RetirementTool() {
   );
   const [share, setShare] = useState(false);
   const result = useMemo(() => simulateRetirement(input), [input]);
-
-  useEffect(() => {
-    document.title = 'Retirement — Klarwert';
-    return () => {
-      document.title = 'Klarwert — Munich finance tools';
-    };
-  }, []);
 
   const chartData: MoneyPoint[] = result.points.map((point) => ({
     month: point.month,
@@ -51,8 +44,7 @@ export function RetirementTool() {
     <article className="workspace">
       <section className="panel">
         <header className="panel-intro">
-          <p className="eyebrow">Savings plan</p>
-          <h1>Retirement</h1>
+          <p className="panel-kicker">Parameters</p>
           <p>
             Set the month the plan starts and how many years to run. Each entry pays in
             every month at its own interest rate. The areas are that entry’s capital.
@@ -157,6 +149,7 @@ export function RetirementTool() {
       <section className="results">
         <Warnings items={result.warnings} />
         <div className="verdict tone-left">
+          <StatusLine warnings={result.warnings} />
           <h2>{formatEur(result.total)} after {endLabel || 'the horizon'}</h2>
           <p>
             {formatEur(result.totalContributed)} is money paid in. {formatEur(result.total - result.totalContributed)} is
