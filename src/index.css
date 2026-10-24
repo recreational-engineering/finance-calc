@@ -398,6 +398,16 @@ code, .mono { font-family: var(--mono); }
   white-space: nowrap;
 }
 .hint { color: var(--text-faint); font-size: 11px; }
+.lone-hint { margin: 0; }
+.line-note {
+  display: block;
+  margin-top: 2px;
+  font-weight: 400;
+  white-space: normal;
+  max-width: 62ch;
+  color: var(--text-faint);
+}
+.breakdown th { white-space: normal; }
 
 .check {
   display: flex;
@@ -447,6 +457,69 @@ code, .mono { font-family: var(--mono); }
   color: #eee;
   border: 1px solid var(--line-strong);
 }
+.inline-link {
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+.chip-row button {
+  border: 1px solid var(--line);
+  background: #161616;
+  color: #c8c8c8;
+  border-radius: 3px;
+  padding: 5px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.chip-row button[aria-pressed='true'] {
+  background: var(--bg-active);
+  color: #fff;
+  border-color: #4a4a4a;
+  box-shadow: inset 2px 0 0 var(--blue);
+}
+.etf-hits {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0 0;
+  display: grid;
+  gap: 6px;
+}
+.etf-hits button {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--bg-sunken);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.etf-hits button[aria-pressed='true'] {
+  border-color: #3a3a3a;
+  background: var(--bg-active);
+  box-shadow: inset 2px 0 0 var(--blue);
+}
+.etf-hits small {
+  color: var(--text-faint);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.etf-empty { color: var(--text-faint); padding: 8px 2px; font-size: 12px; }
+.method .secondary { margin-top: 12px; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .primary:hover { border-color: #8a8a8a; }
 .secondary:hover { background: #1e1e1e; border-color: #3a3a3a; }

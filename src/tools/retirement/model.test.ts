@@ -79,6 +79,20 @@ describe('simulateRetirement', () => {
     expect(result.points).toHaveLength(13);
   });
 
+  it('starts from the DKB example portfolio', () => {
+    expect(DEFAULT_RETIREMENT.entries.map((entry) => [entry.isin, entry.monthlyPayment])).toEqual([
+      ['FR0014010HV4', 200],
+      ['IE00BM67HM91', 200],
+      ['IE000ROSD5J6', 200],
+      ['LU1861132840', 50],
+      ['DE000A0S9GB0', 50],
+    ]);
+    for (const entry of DEFAULT_RETIREMENT.entries) {
+      expect(entry.yearlyInterestPercent).toBeGreaterThan(0);
+      expect(entry.yearlyInterestPercent).toBeLessThan(12);
+    }
+  });
+
   it('rejects a missing horizon', () => {
     const result = simulateRetirement({ startDate: '2026-10-01', years: 0, entries: [] });
     expect(result.points).toHaveLength(0);

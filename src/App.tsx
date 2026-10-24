@@ -6,6 +6,9 @@ import { Shell } from './components/Shell';
 const RetirementTool = lazy(() =>
   import('./tools/retirement/RetirementTool').then((module) => ({ default: module.RetirementTool })),
 );
+const EtfReturnTool = lazy(() =>
+  import('./tools/etf-returns/EtfReturnTool').then((module) => ({ default: module.EtfReturnTool })),
+);
 const RentTool = lazy(() =>
   import('./tools/housing/RentTool').then((module) => ({ default: module.RentTool })),
 );
@@ -21,6 +24,7 @@ export function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/retirement" element={<RetirementTool />} />
+            <Route path="/etf" element={<EtfReturnTool />} />
             <Route path="/rent" element={<RentTool />} />
             <Route path="/leasing" element={<LeasingTool />} />
             <Route path="*" element={<Home />} />

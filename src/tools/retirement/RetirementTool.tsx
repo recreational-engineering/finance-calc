@@ -10,6 +10,15 @@ import { formatEur, formatPercentPoints, formatShare } from '../../platform/form
 import { seriesColor } from '../../platform/palette';
 import { useStoredState } from '../../platform/storage';
 import {
+  ASSUMPTIONS_KEY,
+  DEFAULT_ASSUMPTIONS,
+  reviveAssumptions,
+  type MarketAssumptions,
+} from '../etf-returns/assumptions';
+import { etfByIsin } from '../etf-returns/catalog';
+import { EtfSearch } from '../etf-returns/EtfSearch';
+import { estimateEtf, planningRatePercent } from '../etf-returns/model';
+import {
   DEFAULT_RETIREMENT,
   reviveRetirement,
   simulateRetirement,
@@ -18,10 +27,11 @@ import {
 
 export function RetirementTool() {
   const [input, setInput, reset] = useStoredState(
-    'klarwert:v1:retirement',
+    'klarwert:v2:retirement',
     DEFAULT_RETIREMENT,
     reviveRetirement,
   );
+  const [assumptions] = useStoredState(ASSUMPTIONS_KEY, DEFAULT_ASSUMPTIONS, reviveAssumptions);
   const [share, setShare] = useState(false);
   const result = useMemo(() => simulateRetirement(input), [input]);
 
@@ -46,8 +56,9 @@ export function RetirementTool() {
         <header className="panel-intro">
           <p className="panel-kicker">Parameters</p>
           <p>
-            Set the month the plan starts and how many years to run. Each entry pays in
-            every month at its own interest rate. The areas are that entry’s capital.
+            Set the month the plan starts and how many years to run. Pick an ETF from the
+            DKB list to fill the interest with its planning rate, or type a rate of your own.
+            The areas are that entry’s capital.
           </p>
         </header>
         <FieldGroup title="Horizon">
@@ -81,6 +92,23 @@ export function RetirementTool() {
                 Entry {index + 1}
               </legend>
               <div className="fields">
+                <EtfSearch
+                  id={`etf-${entry.id}`}
+                  assumptions={assumptions}
+                  onPick={(product) =>
+                    patchEntry(entry.id, {
+                      isin: product.isin,
+                      name: product.shortName,
+                      yearlyInterestPercent: planningRatePercent(estimateEtf(product, assumptions)),
+                    })
+                  }
+                />
+                <LinkedRate
+                  isin={entry.isin}
+                  assumptions={assumptions}
+                  yearlyInterestPercent={entry.yearlyInterestPercent}
+                  onApply={(yearlyInterestPercent) => patchEntry(entry.id, { yearlyInterestPercent })}
+                />
                 <TextField
                   label="Name"
                   value={entry.name}
@@ -98,7 +126,7 @@ export function RetirementTool() {
                   label="Expected yearly interest"
                   value={entry.yearlyInterestPercent}
                   min={-99}
-                  step={0.1}
+                  step={0.01}
                   unit="%"
                   onChange={(yearlyInterestPercent) =>
                     patchEntry(entry.id, { yearlyInterestPercent })
@@ -147,7 +175,7 @@ export function RetirementTool() {
         </div>
       </section>
       <section className="results">
-        <Warnings items={result.warnings} />
+        <Warnings items={[...result.warnings, ...leverageNotes(input.entries, assumptions)]} />
         <div className="verdict tone-left">
           <StatusLine warnings={result.warnings} />
           <h2>{formatEur(result.total)} after {endLabel || 'the horizon'}</h2>
@@ -215,7 +243,7 @@ export function RetirementTool() {
                 <tr key={entry.id}>
                   <th scope="row">{entry.name}</th>
                   <td>{formatEur(entry.monthlyPayment)}</td>
-                  <td>{formatPercentPoints(entry.yearlyInterestPercent, 1)}</td>
+                  <td>{formatPercentPoints(entry.yearlyInterestPercent, 2)}</td>
                   <td>{formatEur(entry.contributed)}</td>
                   <td>{formatEur(entry.growth)}</td>
                   <td>{formatEur(entry.capital)}</td>
@@ -265,5 +293,52 @@ export function RetirementTool() {
         />
       </section>
     </article>
+  );
+}
+
+function leverageNotes(entries: SavingsEntry[], assumptions: MarketAssumptions): string[] {
+  return entries.flatMap((entry) => {
+    if (!entry.isin) return [];
+    const product = etfByIsin.get(entry.isin);
+    if (!product || product.leverage === 1) return [];
+    const caution = estimateEtf(product, assumptions).cautions.find(
+      (item) => item.startsWith('This product') || item.startsWith('This is a short'),
+    );
+    return caution ? [`${entry.name}: ${caution}`] : [];
+  });
+}
+
+function LinkedRate({
+  isin,
+  assumptions,
+  yearlyInterestPercent,
+  onApply,
+}: {
+  isin?: string;
+  assumptions: MarketAssumptions;
+  yearlyInterestPercent: number;
+  onApply: (rate: number) => void;
+}) {
+  const product = isin ? etfByIsin.get(isin) : undefined;
+  if (!product) return null;
+  const estimate = estimateEtf(product, assumptions);
+  const rate = planningRatePercent(estimate);
+  const stale = Math.abs(yearlyInterestPercent - rate) > 0.009;
+  const history = estimate.historyPercent;
+  return (
+    <p className="hint">
+      {product.isin}
+      {product.freeSparplan ? ' · zero-fee sparplan' : product.sparplan ? ' · DKB sparplan' : ' · DKB depot'}
+      . History {history == null ? '—' : formatPercentPoints(history, 1)}, forward{' '}
+      {formatPercentPoints(estimate.forwardPercent, 1)}.
+      {stale ? (
+        <>
+          {' '}
+          <button type="button" className="inline-link" onClick={() => onApply(rate)}>
+            Use planning rate {formatPercentPoints(rate, 2)}
+          </button>
+        </>
+      ) : null}
+    </p>
   );
 }
