@@ -3,6 +3,7 @@ import {
   DEFAULT_LEASING,
   carValueAtYear,
   plannedBuyoutPrice,
+  reviveLeasing,
   simulateLeasing,
   type LeasingInput,
 } from './model';
@@ -23,6 +24,13 @@ describe('car value', () => {
     expect(carValueAtYear(35_000, 1, 0.22, 0.12)).toBeCloseTo(35_000 * 0.78, 6);
     expect(carValueAtYear(35_000, 3, 0.22, 0.12)).toBeCloseTo(35_000 * 0.78 * 0.88 ** 2, 6);
     expect(carValueAtYear(35_000, 0.5, 0.22, 0.12)).toBeCloseTo(35_000 * (1 - 0.11), 6);
+  });
+});
+
+describe('reviveLeasing', () => {
+  it('reads an older ownership length stored in months', () => {
+    const revived = reviveLeasing({ ...DEFAULT_LEASING, ownershipMonths: 36, ownershipYears: undefined });
+    expect(revived?.ownershipYears).toBe(3);
   });
 });
 
@@ -80,33 +88,29 @@ describe('simulateLeasing', () => {
     expect(first.buyerMarketGain).toBeCloseTo(0, 6);
   });
 
-  it('replaces the buyer’s car after the ownership interval and invests the net cost for the lessee', () => {
+  it('pays for the buyer’s next car from the buyer’s ETF and leaves the lessee’s wealth unchanged', () => {
     const result = simulateLeasing({
       ...quiet,
-      ownershipMonths: 36,
+      ownershipYears: 3,
       horizonYears: 6,
     });
     const sale = carValueAtYear(35_000, 3, 0.22, 0.12);
+    const netCost = 35_000 + 180 - sale;
     expect(result.buyerPurchases).toBe(2);
     expect(result.points[36].carValue).toBeCloseTo(sale, 4);
     expect(result.points[37].carValue).toBeCloseTo(carValueAtYear(35_000, 1 / 12, 0.22, 0.12), 4);
-    expect(result.points[37].buyerCash).toBeCloseTo(45 + 35_000 + 180 - sale, 4);
+    expect(result.points[37].buyerCash).toBeCloseTo(45 + netCost, 4);
+    expect(result.points[37].lesseeNet).toBeCloseTo(result.points[36].lesseeNet, 4);
+    expect(result.points[37].lesseeEtfNet).toBeCloseTo(result.points[36].lesseeEtfNet, 4);
+    expect(result.totals.buyerEtfWithdrawals + result.totals.buyerUnfunded).toBeCloseTo(netCost, 2);
+    expect(Math.abs(result.points[37].buyerNet - result.points[36].buyerNet)).toBeLessThan(2_000);
     expect(result.points[72].carValue).toBeCloseTo(sale, 4);
     expect(result.totals.registration).toBe(360);
     expect(result.totals.depreciation).toBeCloseTo(2 * (35_000 - sale), 4);
-    let expected = result.buyerInitialCash - result.lesseeInitialCash;
-    for (const point of result.points) {
-      if (point.month === 0) continue;
-      expected += point.buyerCash - point.lesseeCash;
-    }
-    expect(result.totals.lesseeEtfContributions - result.totals.buyerEtfContributions).toBeCloseTo(
-      expected,
-      4,
-    );
   });
 
   it('does not buy a new car when the ownership interval is the whole horizon', () => {
-    const result = simulateLeasing({ ...quiet, ownershipMonths: 72, horizonYears: 6 });
+    const result = simulateLeasing({ ...quiet, ownershipYears: 6, horizonYears: 6 });
     expect(result.buyerPurchases).toBe(1);
     expect(result.finalCarValue).toBeCloseTo(carValueAtYear(35_000, 6, 0.22, 0.12), 4);
   });
@@ -122,6 +126,8 @@ describe('simulateLeasing', () => {
     expect(result.totals.transferFees).toBe(900);
     expect(result.points[36].lesseeCash).toBeCloseTo(result.monthlyLease + 30 + residual + 180, 4);
     expect(result.points[36].lesseeCarEquity).toBeCloseTo(residual, 4);
+    expect(result.points[36].buyerEtfNet - result.points[35].buyerEtfNet).toBeLessThan(1_000);
+    expect(result.totals.lesseeEtfWithdrawals + result.totals.lesseeUnfunded).toBeCloseTo(residual + 180, 2);
     expect(result.points[37].lesseeCash).toBe(45 + 3 * 8);
     expect(result.points[37].lesseeCarValue).toBeLessThan(residual);
     expect(result.points[72].lesseeCarValue).toBeCloseTo(result.points[72].carValue, 4);
@@ -175,7 +181,7 @@ describe('simulateLeasing', () => {
       sameStartingCapital: true,
       monthlySavings: 700,
       horizonYears: 10,
-      ownershipMonths: 120,
+      ownershipYears: 10,
     });
     const month = result.acquisitionMonth ?? 0;
     expect(month).toBeGreaterThan(1);
@@ -213,7 +219,7 @@ describe('simulateLeasing', () => {
       laterDropPercent: 12,
       leaseTermMonths: 6,
       horizonYears: 1,
-      ownershipMonths: 96,
+      ownershipYears: 8,
     });
     expect(result.acquisitionMonth).toBe(1);
     expect(result.buyoutMonth).toBe(6);

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChartCard, GrowthCompareChart } from '../../components/Charts';
-import { Facts, FieldGroup, NumberField, StatusLine, Warnings } from '../../components/Fields';
+import { Facts, FieldGroup, NumberField, SettingsPanel, StatusLine, Warnings } from '../../components/Fields';
 import { formatPercentPoints } from '../../platform/format';
 import { useStoredState } from '../../platform/storage';
 import {
@@ -25,33 +25,33 @@ const GROUPS: Array<{ id: GroupId; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'equity', label: 'Equities' },
   { id: 'bonds', label: 'Bonds' },
-  { id: 'real', label: 'Gold and commodities' },
+  { id: 'real', label: 'Gold' },
   { id: 'levered', label: 'Leveraged' },
 ];
 
 const INCOME: Array<{ id: IncomeFilter; label: string }> = [
-  { id: 'any', label: 'Any income' },
-  { id: 'accumulating', label: 'Accumulating' },
-  { id: 'distributing', label: 'Distributing' },
+  { id: 'any', label: 'Any' },
+  { id: 'accumulating', label: 'Acc' },
+  { id: 'distributing', label: 'Dist' },
 ];
 
 const LISTING: Array<{ id: ListingFilter; label: string }> = [
-  { id: 'any', label: 'Any listing' },
+  { id: 'any', label: 'Any' },
   { id: 'sparplan', label: 'Sparplan' },
   { id: 'free', label: 'Zero-fee' },
 ];
 
 const HISTORY: Array<{ id: HistoryFilter; label: string }> = [
-  { id: 'any', label: 'Any history' },
-  { id: 'long', label: '8 years or more' },
+  { id: 'any', label: 'Any' },
+  { id: 'long', label: '8 years+' },
 ];
 
 const SORTS: Array<{ id: EtfSort; label: string }> = [
   { id: 'name', label: 'Name' },
-  { id: 'planning-desc', label: 'Planning return, high to low' },
-  { id: 'planning-asc', label: 'Planning return, low to high' },
-  { id: 'history-desc', label: 'History, high to low' },
-  { id: 'history-asc', label: 'History, low to high' },
+  { id: 'planning-desc', label: 'Plan, high first' },
+  { id: 'planning-asc', label: 'Plan, low first' },
+  { id: 'history-desc', label: 'History, high first' },
+  { id: 'history-asc', label: 'History, low first' },
 ];
 
 const PAGE = 24;
@@ -127,143 +127,146 @@ export function EtfReturnTool() {
 
   return (
     <article className="workspace">
-      <section className="panel">
-        <header className="panel-intro">
-          <p className="panel-kicker">Parameters</p>
-          <p>
-            Pick an ETF or ETC from the DKB list. The planning rate mixes a long
-            history with a forward build from dividends, growth, inflation, and
-            today’s prices. Retirement uses that rate as the interest.
-          </p>
-        </header>
-        <label className="field" htmlFor="etf-query">
-          <span className="field-label">Search the DKB list</span>
-          <span className="field-control">
-            <input
-              id="etf-query"
-              value={query}
-              placeholder="Name, ISIN, or WKN"
-              autoComplete="off"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </span>
-        </label>
-        <div className="chip-row" role="group" aria-label="Asset class">
-          {GROUPS.map((item) => (
-            <button key={item.id} type="button" aria-pressed={group === item.id} onClick={() => setGroup(item.id)}>
-              {item.label}
+      <SettingsPanel>
+        <section className="setting-group">
+          <h3>Fund</h3>
+          <label className="setting" htmlFor="etf-query">
+            <span className="setting-copy">
+              <span className="setting-label">Search</span>
+              <span className="setting-hint">
+                {listed.showingExample
+                  ? 'Retirement example. Sort by a return to rank the list.'
+                  : `${shown.length} of ${listed.matched}`}
+              </span>
+            </span>
+            <span className="setting-control">
+              <input
+                id="etf-query"
+                value={query}
+                placeholder="Name, ISIN, or WKN"
+                autoComplete="off"
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </span>
+          </label>
+          <Choice label="Asset class" options={GROUPS} value={group} onChange={setGroup} />
+          <Choice label="Income" options={INCOME} value={income} onChange={setIncome} />
+          <Choice label="Listing" options={LISTING} value={listing} onChange={setListing} />
+          <Choice label="History" options={HISTORY} value={history} onChange={setHistory} />
+          <label className="setting" htmlFor="etf-sort">
+            <span className="setting-copy">
+              <span className="setting-label">Sort</span>
+            </span>
+            <span className="setting-control">
+              <select id="etf-sort" value={sort} onChange={(event) => setSort(event.target.value as EtfSort)}>
+                {SORTS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </label>
+          <div className="setting-columns">
+            <span>Fund</span>
+            <span>Plan · history</span>
+          </div>
+          <ul className="etf-hits">
+            {shown.map((row) => (
+              <Hit
+                key={row.product.isin}
+                row={row}
+                selected={row.product.isin === product.isin}
+                onPick={(next) => setSelection({ isin: next.isin })}
+              />
+            ))}
+            {shown.length === 0 ? <li className="etf-empty">Nothing in this filter matches.</li> : null}
+          </ul>
+          {listed.matched > shown.length ? (
+            <button type="button" className="secondary show-more" onClick={() => setVisible((count) => count + PAGE)}>
+              Show more
             </button>
-          ))}
-        </div>
-        <div className="chip-row" role="group" aria-label="Income">
-          {INCOME.map((item) => (
-            <button key={item.id} type="button" aria-pressed={income === item.id} onClick={() => setIncome(item.id)}>
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <div className="chip-row" role="group" aria-label="Listing">
-          {LISTING.map((item) => (
-            <button key={item.id} type="button" aria-pressed={listing === item.id} onClick={() => setListing(item.id)}>
-              {item.label}
-            </button>
-          ))}
-          {HISTORY.map((item) => (
-            <button key={item.id} type="button" aria-pressed={history === item.id} onClick={() => setHistory(item.id)}>
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <label className="field" htmlFor="etf-sort">
-          <span className="field-label">Sort</span>
-          <span className="field-control">
-            <select id="etf-sort" value={sort} onChange={(event) => setSort(event.target.value as EtfSort)}>
-              {SORTS.map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </span>
-        </label>
-        <ul className="etf-hits">
-          {shown.map((row) => (
-            <Hit
-              key={row.product.isin}
-              row={row}
-              selected={row.product.isin === product.isin}
-              onPick={(next) => setSelection({ isin: next.isin })}
-            />
-          ))}
-          {shown.length === 0 ? <li className="etf-empty">Nothing in this filter matches.</li> : null}
-        </ul>
-        {listed.matched > shown.length ? (
-          <button type="button" className="secondary show-more" onClick={() => setVisible((count) => count + PAGE)}>
-            Show more
-          </button>
-        ) : null}
-        <p className="hint">
-          {listed.showingExample
-            ? 'The five rows are the retirement example. Sort by a return to rank the whole list.'
-            : `Showing ${shown.length} of ${listed.matched}.`}
-        </p>
-        <details className="method">
-          <summary>Market assumptions</summary>
-          <FieldGroup title="October 2026 starting point">
-            <NumberField
-              label="Euro inflation"
-              value={assumptions.inflationPercent}
-              step={0.1}
-              unit="%"
-              onChange={(inflationPercent) => patch({ inflationPercent })}
-            />
-            <NumberField
-              label="Valuation horizon"
-              value={assumptions.horizonYears}
-              min={5}
-              max={60}
-              step={1}
-              unit="years"
-              onChange={(horizonYears) => patch({ horizonYears })}
-            />
-            <NumberField
-              label="Leverage financing"
-              value={assumptions.financingPercent}
-              step={0.1}
-              unit="%"
-              hint="SOFR was 3.90% on 22 Oct 2026. The extra 0.50 is a swap spread."
-              onChange={(financingPercent) => patch({ financingPercent })}
-            />
-            <NumberField
-              label="Financing in the history"
-              value={assumptions.historyFinancingPercent}
-              step={0.1}
-              unit="%"
-              onChange={(historyFinancingPercent) => patch({ historyFinancingPercent })}
-            />
-            <NumberField
-              label="USD hedge cost"
-              value={assumptions.usdHedgeCostPercent}
-              step={0.01}
-              unit="%"
-              hint="Dollar cash minus euro cash. €STR was 2.44%."
-              onChange={(usdHedgeCostPercent) => patch({ usdHedgeCostPercent })}
-            />
-            <NumberField
-              label="Euro cash yield"
-              value={assumptions.eurCashPercent}
-              step={0.01}
-              unit="%"
-              onChange={(eurCashPercent) => patch({ eurCashPercent })}
-            />
-          </FieldGroup>
+          ) : null}
+        </section>
+        <FieldGroup title="Market assumptions" collapsed>
+          <NumberField
+            label="Euro inflation"
+            value={assumptions.inflationPercent}
+            step={0.1}
+            unit="%"
+            onChange={(inflationPercent) => patch({ inflationPercent })}
+          />
+          <NumberField
+            label="Valuation horizon"
+            value={assumptions.horizonYears}
+            min={5}
+            max={60}
+            step={1}
+            unit="years"
+            onChange={(horizonYears) => patch({ horizonYears })}
+          />
+          <NumberField
+            label="Leverage financing"
+            value={assumptions.financingPercent}
+            step={0.1}
+            unit="%"
+            hint="SOFR was 3.90% on 22 Oct 2026. The extra 0.50 is a swap spread."
+            onChange={(financingPercent) => patch({ financingPercent })}
+          />
+          <NumberField
+            label="Financing in the history"
+            value={assumptions.historyFinancingPercent}
+            step={0.1}
+            unit="%"
+            onChange={(historyFinancingPercent) => patch({ historyFinancingPercent })}
+          />
+          <NumberField
+            label="USD hedge cost"
+            value={assumptions.usdHedgeCostPercent}
+            step={0.01}
+            unit="%"
+            hint="Dollar cash minus euro cash. €STR was 2.44%."
+            onChange={(usdHedgeCostPercent) => patch({ usdHedgeCostPercent })}
+          />
+          <NumberField
+            label="Euro cash yield"
+            value={assumptions.eurCashPercent}
+            step={0.01}
+            unit="%"
+            onChange={(eurCashPercent) => patch({ eurCashPercent })}
+          />
           <button type="button" className="secondary" onClick={resetAssumptions}>
             Reset assumptions
           </button>
-        </details>
-      </section>
+        </FieldGroup>
+      </SettingsPanel>
       <EstimateView product={product} estimate={estimate} />
     </article>
+  );
+}
+
+function Choice<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ id: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="asset-class">
+      <span className="setting-label">{label}</span>
+      <div className="segment" role="group" aria-label={label}>
+        {options.map((item) => (
+          <button key={item.id} type="button" aria-pressed={value === item.id} onClick={() => onChange(item.id)}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -280,11 +283,14 @@ function Hit({
   return (
     <li>
       <button type="button" aria-pressed={selected} onClick={() => onPick(product)}>
-        <span>{product.shortName}</span>
-        <small>
-          {product.isin} · plan {formatPercentPoints(planning, 2)} · history{' '}
-          {history == null ? '—' : formatPercentPoints(history, 2)}
-        </small>
+        <span className="hit-copy">
+          <span>{product.shortName}</span>
+          <small className="hit-isin">{product.isin}</small>
+        </span>
+        <span className="hit-rates">
+          <small>{formatPercentPoints(planning, 2)}</small>
+          <small>{history == null ? '—' : formatPercentPoints(history, 2)}</small>
+        </span>
       </button>
     </li>
   );
@@ -306,10 +312,10 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
         <StatusLine warnings={estimate.cautions} />
         <h2>{formatPercentPoints(planningRatePercent(estimate), 2)} a year</h2>
         <p>
-          Planning rate for {product.shortName}. Retirement inserts this number as the
-          yearly interest. It is a nominal euro return before German fund tax.
+          Planning rate for {product.shortName}. Retirement uses it as the yearly interest.
+          Nominal, in euro, before German fund tax.
           {estimate.blendsHistory
-            ? ` It stays within 1,25 percentage points of the historic long-term rate.`
+            ? ' It stays within 1,25 percentage points of the historic long-term rate.'
             : ' This fund has no long history on file, so the rate is the forward build.'}
         </p>
       </div>
