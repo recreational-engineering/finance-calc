@@ -109,6 +109,16 @@ export function Facts({ items }: { items: Array<{ label: string; value: string }
   );
 }
 
+export function StatusLine({ warnings }: { warnings: string[] }) {
+  const check = warnings.length > 0;
+  return (
+    <p className="status-line">
+      <span>Status</span>
+      <strong className={check ? 'pill pill-check' : 'pill'}>{check ? 'CHECK' : 'NOMINAL'}</strong>
+    </p>
+  );
+}
+
 export function Warnings({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (

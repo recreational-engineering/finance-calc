@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Facts, FieldGroup, NumberField, Warnings } from '../../components/Fields';
+import { useMemo, useState } from 'react';
+import { Facts, FieldGroup, NumberField, StatusLine, Warnings } from '../../components/Fields';
 import { formatPercentPoints, formatShare } from '../../platform/format';
 import { useStoredState } from '../../platform/storage';
 import {
@@ -69,13 +69,6 @@ export function EtfReturnTool() {
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<GroupId>('all');
 
-  useEffect(() => {
-    document.title = 'ETFs — Klarwert';
-    return () => {
-      document.title = 'Klarwert — Munich finance tools';
-    };
-  }, []);
-
   const product = etfByIsin.get(selection.isin) ?? requireEtf('FR0014010HV4');
   const estimate = useMemo(() => estimateEtf(product, assumptions), [product, assumptions]);
   const listed = useMemo(() => {
@@ -94,8 +87,7 @@ export function EtfReturnTool() {
     <article className="workspace">
       <section className="panel">
         <header className="panel-intro">
-          <p className="eyebrow">Expected return</p>
-          <h1>ETFs</h1>
+          <p className="panel-kicker">Parameters</p>
           <p>
             Pick an ETF or ETC from the DKB list. The planning rate mixes a long
             history with a forward build from dividends, growth, inflation, and
@@ -242,6 +234,7 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
     <section className="results">
       <Warnings items={estimate.cautions} />
       <div className="verdict">
+        <StatusLine warnings={estimate.cautions} />
         <h2>{formatPercentPoints(planningRatePercent(estimate), 2)} a year</h2>
         <p>
           Planning rate for {product.shortName}. Retirement inserts this number as the

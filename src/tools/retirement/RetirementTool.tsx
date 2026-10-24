@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ChartCard,
   StackedAreaChart,
   chartTicks,
   type MoneyPoint,
 } from '../../components/Charts';
-import { Facts, FieldGroup, NumberField, TextField, Warnings } from '../../components/Fields';
+import { Facts, FieldGroup, NumberField, StatusLine, TextField, Warnings } from '../../components/Fields';
 import { formatEur, formatPercentPoints, formatShare } from '../../platform/format';
 import { seriesColor } from '../../platform/palette';
 import { useStoredState } from '../../platform/storage';
@@ -35,13 +35,6 @@ export function RetirementTool() {
   const [share, setShare] = useState(false);
   const result = useMemo(() => simulateRetirement(input), [input]);
 
-  useEffect(() => {
-    document.title = 'Retirement — Klarwert';
-    return () => {
-      document.title = 'Klarwert — Munich finance tools';
-    };
-  }, []);
-
   const chartData: MoneyPoint[] = result.points.map((point) => ({
     month: point.month,
     label: point.label,
@@ -61,8 +54,7 @@ export function RetirementTool() {
     <article className="workspace">
       <section className="panel">
         <header className="panel-intro">
-          <p className="eyebrow">Savings plan</p>
-          <h1>Retirement</h1>
+          <p className="panel-kicker">Parameters</p>
           <p>
             Set the month the plan starts and how many years to run. Pick an ETF from the
             DKB list to fill the interest with its planning rate, or type a rate of your own.
@@ -185,6 +177,7 @@ export function RetirementTool() {
       <section className="results">
         <Warnings items={[...result.warnings, ...leverageNotes(input.entries, assumptions)]} />
         <div className="verdict tone-left">
+          <StatusLine warnings={result.warnings} />
           <h2>{formatEur(result.total)} after {endLabel || 'the horizon'}</h2>
           <p>
             {formatEur(result.totalContributed)} is money paid in. {formatEur(result.total - result.totalContributed)} is

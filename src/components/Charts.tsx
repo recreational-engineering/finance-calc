@@ -6,6 +6,8 @@ import {
   BarChart,
   CartesianGrid,
   Legend,
+  Line,
+  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -26,8 +28,18 @@ interface Series {
   stack?: string;
 }
 
-const axisTick = { fill: '#5e584e', fontSize: 12, fontFamily: 'Outfit, sans-serif' };
-const legendStyle = { fontSize: 13, fontFamily: 'Outfit, sans-serif', paddingTop: 8 };
+const axisTick = {
+  fill: '#8a8a8a',
+  fontSize: 11,
+  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+};
+const legendStyle = {
+  fontSize: 12,
+  fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+  color: '#c8c8c8',
+  paddingTop: 4,
+};
+const legendFormatter = (value: string) => <span style={{ color: '#c8c8c8' }}>{value}</span>;
 
 function axisFromZero(dataMin: number): number {
   return Math.min(0, dataMin);
@@ -157,39 +169,41 @@ export function LineMoneyChart({
   return (
     <div className="chart-box">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#eadfce" vertical={false} />
+        <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke="#1c1c1c" vertical={false} />
           <XAxis
             dataKey="month"
             ticks={ticks}
             tick={axisTick}
+            tickLine={false}
+            axisLine={false}
             tickFormatter={(month: number) => (month === 0 ? 'Start' : String(month / 12))}
-            stroke="#d9d0c2"
+            stroke="#1c1c1c"
           />
           <YAxis
             tick={axisTick}
+            tickLine={false}
+            axisLine={false}
             tickFormatter={formatAxisEur}
             width={72}
-            stroke="#d9d0c2"
+            stroke="#1c1c1c"
             domain={[axisFromZero, 'auto']}
           />
           <Tooltip content={<MoneyTooltip />} />
-          <Legend wrapperStyle={legendStyle} />
+          <Legend wrapperStyle={legendStyle} formatter={legendFormatter} />
           {series.map((item) => (
-            <Area
+            <Line
               key={item.key}
               type={curve}
               dataKey={item.key}
               name={item.name}
               stroke={item.color}
-              fill={item.color}
-              fillOpacity={0.16}
-              strokeWidth={2.25}
+              strokeWidth={1.75}
               dot={false}
               isAnimationActive={false}
             />
           ))}
-        </AreaChart>
+        </LineChart>
       </ResponsiveContainer>
     </div>
   );
@@ -214,19 +228,23 @@ export function StackedAreaChart({
           stackOffset={share ? 'expand' : 'none'}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
-          <CartesianGrid stroke="#eadfce" vertical={false} />
+          <CartesianGrid stroke="#1c1c1c" vertical={false} />
           <XAxis
             dataKey="month"
             ticks={ticks}
             tick={axisTick}
+            tickLine={false}
+            axisLine={false}
             tickFormatter={(month: number) => (month === 0 ? 'Start' : String(month / 12))}
-            stroke="#d9d0c2"
+            stroke="#1c1c1c"
           />
           <YAxis
             tick={axisTick}
+            tickLine={false}
+            axisLine={false}
             tickFormatter={share ? (value: number) => `${Math.round(value * 100)} %` : formatAxisEur}
             width={72}
-            stroke="#d9d0c2"
+            stroke="#1c1c1c"
             domain={share ? [0, 1] : [0, 'auto']}
           />
           <Tooltip content={<ShareTooltip />} />
@@ -238,7 +256,7 @@ export function StackedAreaChart({
               name={item.name}
               stroke={item.color}
               fill={item.color}
-              fillOpacity={0.86}
+              fillOpacity={0.55}
               strokeWidth={1.25}
               stackId="capital"
               dot={false}
@@ -262,11 +280,19 @@ export function StackedBarChart({
     <div className="chart-box">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-          <CartesianGrid stroke="#eadfce" vertical={false} />
-          <XAxis dataKey="label" tick={axisTick} stroke="#d9d0c2" interval={0} />
-          <YAxis tick={axisTick} tickFormatter={formatAxisEur} width={72} stroke="#d9d0c2" />
+          <CartesianGrid stroke="#1c1c1c" vertical={false} />
+          <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={false} stroke="#1c1c1c" interval={0} />
+          <YAxis
+            tick={axisTick}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={formatAxisEur}
+            width={72}
+            stroke="#1c1c1c"
+            domain={[0, 'auto']}
+          />
           <Tooltip content={<MoneyTooltip />} />
-          <Legend wrapperStyle={legendStyle} />
+          <Legend wrapperStyle={legendStyle} formatter={legendFormatter} />
           {series.map((item) => (
             <Bar
               key={item.key}

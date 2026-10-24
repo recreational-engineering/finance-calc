@@ -1,4 +1,4 @@
-# Klarwert
+# FinCalc
 
 Long-horizon money calculations in euro, with Munich as the default market. The site is published at [recreational-engineering.github.io/finance-calc](https://recreational-engineering.github.io/finance-calc/).
 
