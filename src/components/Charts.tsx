@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 import {
   Area,
-  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
+  ComposedChart,
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -18,7 +19,7 @@ import { formatAxisEur, formatEur, formatShare } from '../platform/format';
 export interface MoneyPoint {
   month: number;
   label: string;
-  [key: string]: number | string;
+  [key: string]: number | string | null;
 }
 
 interface Series {
@@ -89,6 +90,7 @@ function rowValue(row: MoneyPoint | undefined, key: string | undefined, fallback
 export function ShareTooltip({
   active,
   payload,
+  overlayKeys = [],
 }: {
   active?: boolean;
   payload?: Array<{
@@ -98,20 +100,26 @@ export function ShareTooltip({
     dataKey?: string | number;
     payload?: MoneyPoint;
   }>;
+  overlayKeys?: readonly string[];
 }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload;
-  const items = payload.map((item) => ({
-    name: item.name ?? '',
-    color: item.color,
-    value: rowValue(row, item.dataKey === undefined ? undefined : String(item.dataKey), Number(item.value)),
-  }));
-  const total = items.reduce((sum, item) => sum + (Number.isFinite(item.value) ? item.value : 0), 0);
+  const overlaySet = new Set(overlayKeys);
+  const items = payload.flatMap((item) => {
+    if (!item.name) return [];
+    const key = item.dataKey === undefined ? '' : String(item.dataKey);
+    const value = rowValue(row, key || undefined, Number(item.value));
+    if (!Number.isFinite(value)) return [];
+    return [{ key, name: item.name, color: item.color, value }];
+  });
+  const stack = items.filter((item) => !overlaySet.has(item.key));
+  const overlays = overlayKeys.flatMap((key) => items.filter((item) => item.key === key));
+  const total = stack.reduce((sum, item) => sum + item.value, 0);
   return (
     <div className="tooltip">
       <p className="tooltip-title">{row?.label ?? ''}</p>
       <ul>
-        {items.map((item) => (
+        {stack.map((item) => (
           <li key={item.name}>
             <i style={{ background: item.color }} />
             <span>{item.name}</span>
@@ -121,11 +129,20 @@ export function ShareTooltip({
             </b>
           </li>
         ))}
-        <li>
-          <i style={{ background: 'transparent' }} />
-          <span>Total</span>
-          <b>{formatEur(total)}</b>
-        </li>
+        {stack.length > 0 ? (
+          <li>
+            <i style={{ background: 'transparent' }} />
+            <span>Total</span>
+            <b>{formatEur(total)}</b>
+          </li>
+        ) : null}
+        {overlays.map((item) => (
+          <li key={item.key}>
+            <i style={{ background: item.color }} />
+            <span>{item.name}</span>
+            <b>{formatEur(item.value)}</b>
+          </li>
+        ))}
       </ul>
     </div>
   );
@@ -210,6 +227,14 @@ export function LineMoneyChart({
   );
 }
 
+export interface ChartLine {
+  key: string;
+  name: string;
+  color: string;
+  dash?: string;
+  width?: number;
+}
+
 export function GrowthCompareChart({
   data,
 }: {
@@ -276,28 +301,42 @@ export function StackedAreaChart({
   series,
   ticks,
   share,
+  overlays = [],
+  markMonth,
+  formatTick,
+  showAllTicks = false,
 }: {
   data: MoneyPoint[];
   series: Series[];
   ticks: number[];
   share: boolean;
+  /** Lines on the euro axis, drawn over the stacked estimate. */
+  overlays?: ChartLine[];
+  /** Vertical mark, in the same month units as the x axis. */
+  markMonth?: number;
+  formatTick?: (month: number) => string;
+  showAllTicks?: boolean;
 }) {
+  const formatTickValue = formatTick ?? ((month: number) => (month === 0 ? 'Start' : String(month / 12)));
   return (
     <div className="chart-box chart-box-tall">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart
+        <ComposedChart
           data={data}
           stackOffset={share ? 'expand' : 'none'}
           margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
         >
           <CartesianGrid stroke="#1c1c1c" vertical={false} />
           <XAxis
+            type="number"
             dataKey="month"
+            domain={[0, 'dataMax']}
             ticks={ticks}
+            interval={showAllTicks ? 0 : 'preserveEnd'}
             tick={axisTick}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(month: number) => (month === 0 ? 'Start' : String(month / 12))}
+            tickFormatter={(month: number) => formatTickValue(Number(month))}
             stroke="#1c1c1c"
           />
           <YAxis
@@ -307,9 +346,9 @@ export function StackedAreaChart({
             tickFormatter={share ? (value: number) => `${Math.round(value * 100)} %` : formatAxisEur}
             width={72}
             stroke="#1c1c1c"
-            domain={share ? [0, 1] : [0, 'auto']}
+            domain={share ? [0, 1] : [axisFromZero, 'auto']}
           />
-          <Tooltip content={<ShareTooltip />} />
+          <Tooltip content={<ShareTooltip overlayKeys={overlays.map((item) => item.key)} />} />
           {series.map((item) => (
             <Area
               key={item.key}
@@ -325,7 +364,36 @@ export function StackedAreaChart({
               isAnimationActive={false}
             />
           ))}
-        </AreaChart>
+          {overlays.map((item) => (
+            <Line
+              key={item.key}
+              type="monotone"
+              dataKey={item.key}
+              name={item.name}
+              stroke={item.color}
+              strokeWidth={item.width ?? 2}
+              strokeDasharray={item.dash}
+              dot={false}
+              connectNulls={false}
+              isAnimationActive={false}
+              style={{ filter: 'drop-shadow(0 0 1.5px rgba(0,0,0,0.95))' }}
+            />
+          ))}
+          {markMonth != null ? (
+            <ReferenceLine
+              x={markMonth}
+              stroke="#6e6e6e"
+              strokeDasharray="3 3"
+              label={{
+                value: 'Now',
+                fill: '#bdbdbd',
+                fontSize: 11,
+                fontFamily: "'JetBrains Mono', ui-monospace, monospace",
+                position: 'insideTopRight',
+              }}
+            />
+          ) : null}
+        </ComposedChart>
       </ResponsiveContainer>
     </div>
   );
