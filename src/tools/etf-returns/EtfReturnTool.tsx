@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChartCard, GrowthCompareChart } from '../../components/Charts';
-import { Facts, FieldGroup, NumberField, StatusLine, Warnings } from '../../components/Fields';
+import { Facts, FieldGroup, NumberField, SettingsPanel, StatusLine, Warnings } from '../../components/Fields';
 import { formatPercentPoints } from '../../platform/format';
 import { useStoredState } from '../../platform/storage';
 import {
@@ -9,33 +9,52 @@ import {
   reviveAssumptions,
   type MarketAssumptions,
 } from './assumptions';
+import { PORTFOLIO_ISINS, etfByIsin, etfProducts, requireEtf, type EtfProduct } from './catalog';
 import {
-  PORTFOLIO_ISINS,
-  etfByIsin,
-  etfProducts,
-  requireEtf,
-  searchEtfs,
-  type EtfProduct,
-} from './catalog';
+  listEtfs,
+  type EtfSort,
+  type GroupId,
+  type HistoryFilter,
+  type IncomeFilter,
+  type ListedEtf,
+  type ListingFilter,
+} from './list';
 import { estimateEtf, growthComparison, planningRatePercent, type EtfEstimate } from './model';
 
-const GROUPS = [
+const GROUPS: Array<{ id: GroupId; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'equity', label: 'Equities' },
   { id: 'bonds', label: 'Bonds' },
   { id: 'real', label: 'Gold' },
   { id: 'levered', label: 'Leveraged' },
-] as const;
+];
 
-type GroupId = (typeof GROUPS)[number]['id'];
+const INCOME: Array<{ id: IncomeFilter; label: string }> = [
+  { id: 'any', label: 'Any' },
+  { id: 'accumulating', label: 'Acc' },
+  { id: 'distributing', label: 'Dist' },
+];
 
-function inGroup(product: EtfProduct, group: GroupId): boolean {
-  if (group === 'all') return true;
-  if (group === 'levered') return product.leverage !== 1;
-  if (group === 'bonds') return product.kind === 'bond' || product.kind === 'cash';
-  if (group === 'real') return product.kind === 'gold' || product.kind === 'commodity' || product.kind === 'crypto';
-  return product.kind === 'equity';
-}
+const LISTING: Array<{ id: ListingFilter; label: string }> = [
+  { id: 'any', label: 'Any' },
+  { id: 'sparplan', label: 'Sparplan' },
+  { id: 'free', label: 'Zero-fee' },
+];
+
+const HISTORY: Array<{ id: HistoryFilter; label: string }> = [
+  { id: 'any', label: 'Any' },
+  { id: 'long', label: '8 years+' },
+];
+
+const SORTS: Array<{ id: EtfSort; label: string }> = [
+  { id: 'name', label: 'Name' },
+  { id: 'planning-desc', label: 'Plan, high first' },
+  { id: 'planning-asc', label: 'Plan, low first' },
+  { id: 'history-desc', label: 'History, high first' },
+  { id: 'history-asc', label: 'History, low first' },
+];
+
+const PAGE = 24;
 
 function availability(product: EtfProduct): string {
   if (product.freeSparplan) return 'DKB sparplan, in the 2026 zero-fee action';
@@ -69,38 +88,56 @@ export function EtfReturnTool() {
   );
   const [query, setQuery] = useState('');
   const [group, setGroup] = useState<GroupId>('all');
+  const [income, setIncome] = useState<IncomeFilter>('any');
+  const [listing, setListing] = useState<ListingFilter>('any');
+  const [history, setHistory] = useState<HistoryFilter>('any');
+  const [sort, setSort] = useState<EtfSort>('name');
+  const [visible, setVisible] = useState(PAGE);
 
   const product = etfByIsin.get(selection.isin) ?? requireEtf('FR0014010HV4');
   const estimate = useMemo(() => estimateEtf(product, assumptions), [product, assumptions]);
-  const listed = useMemo(() => {
-    const pool = etfProducts.filter((item) => inGroup(item, group));
-    if (query.trim()) return searchEtfs(pool, query, 30);
-    if (group !== 'all') return pool.slice(0, 30);
-    return [];
-  }, [group, query]);
-  const shortcuts = PORTFOLIO_ISINS.map((isin) => etfByIsin.get(isin)).filter((item): item is EtfProduct => Boolean(item));
+  const example = useMemo(
+    () => PORTFOLIO_ISINS.map((isin) => etfByIsin.get(isin)).filter((item): item is EtfProduct => Boolean(item)),
+    [],
+  );
+  const listed = useMemo(
+    () =>
+      listEtfs({
+        products: etfProducts,
+        assumptions,
+        query,
+        group,
+        income,
+        listing,
+        history,
+        sort,
+        example,
+      }),
+    [assumptions, query, group, income, listing, history, sort, example],
+  );
+  const shown = listed.rows.slice(0, visible);
+
+  useEffect(() => {
+    setVisible(PAGE);
+  }, [query, group, income, listing, history, sort, assumptions]);
 
   const patch = (partial: Partial<MarketAssumptions>) => {
     setAssumptions((current) => ({ ...current, ...partial }));
   };
 
-  const showingExample = !query.trim() && group === 'all';
-  const poolCount = etfProducts.filter((item) => inGroup(item, group)).length;
-  const listHint = showingExample
-    ? `${etfProducts.length} listings. These rows are the retirement example.`
-    : listed.length === 0
-      ? 'Nothing in this asset class matches.'
-      : `${listed.length} of ${poolCount}`;
-
   return (
     <article className="workspace">
-      <section className="panel settings">
+      <SettingsPanel>
         <section className="setting-group">
           <h3>Fund</h3>
           <label className="setting" htmlFor="etf-query">
             <span className="setting-copy">
               <span className="setting-label">Search</span>
-              <span className="setting-hint">{listHint}</span>
+              <span className="setting-hint">
+                {listed.showingExample
+                  ? 'Retirement example. Sort by a return to rank the list.'
+                  : `${shown.length} of ${listed.matched}`}
+              </span>
             </span>
             <span className="setting-control">
               <input
@@ -112,37 +149,44 @@ export function EtfReturnTool() {
               />
             </span>
           </label>
-          <div className="asset-class">
-            <span className="setting-label">Asset class</span>
-            <div className="segment" role="group" aria-label="Asset class">
-              {GROUPS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  aria-pressed={group === item.id}
-                  title={item.id === 'real' ? 'Gold, commodities, and crypto' : undefined}
-                  onClick={() => setGroup(item.id)}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <Choice label="Asset class" options={GROUPS} value={group} onChange={setGroup} />
+          <Choice label="Income" options={INCOME} value={income} onChange={setIncome} />
+          <Choice label="Listing" options={LISTING} value={listing} onChange={setListing} />
+          <Choice label="History" options={HISTORY} value={history} onChange={setHistory} />
+          <label className="setting" htmlFor="etf-sort">
+            <span className="setting-copy">
+              <span className="setting-label">Sort</span>
+            </span>
+            <span className="setting-control">
+              <select id="etf-sort" value={sort} onChange={(event) => setSort(event.target.value as EtfSort)}>
+                {SORTS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </span>
+          </label>
           <div className="setting-columns">
-            <span>Listing</span>
-            <span>Planning rate</span>
+            <span>Fund</span>
+            <span>Plan · history</span>
           </div>
           <ul className="etf-hits">
-            {(showingExample ? shortcuts : listed).map((item) => (
+            {shown.map((row) => (
               <Hit
-                key={item.isin}
-                product={item}
-                assumptions={assumptions}
-                selected={item.isin === product.isin}
+                key={row.product.isin}
+                row={row}
+                selected={row.product.isin === product.isin}
                 onPick={(next) => setSelection({ isin: next.isin })}
               />
             ))}
+            {shown.length === 0 ? <li className="etf-empty">Nothing in this filter matches.</li> : null}
           </ul>
+          {listed.matched > shown.length ? (
+            <button type="button" className="secondary show-more" onClick={() => setVisible((count) => count + PAGE)}>
+              Show more
+            </button>
+          ) : null}
         </section>
         <FieldGroup title="Market assumptions" collapsed>
           <NumberField
@@ -195,24 +239,47 @@ export function EtfReturnTool() {
             Reset assumptions
           </button>
         </FieldGroup>
-      </section>
+      </SettingsPanel>
       <EstimateView product={product} estimate={estimate} />
     </article>
   );
 }
 
+function Choice<T extends string>({
+  label,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  options: Array<{ id: T; label: string }>;
+  value: T;
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="asset-class">
+      <span className="setting-label">{label}</span>
+      <div className="segment" role="group" aria-label={label}>
+        {options.map((item) => (
+          <button key={item.id} type="button" aria-pressed={value === item.id} onClick={() => onChange(item.id)}>
+            {item.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Hit({
-  product,
-  assumptions,
+  row,
   selected,
   onPick,
 }: {
-  product: EtfProduct;
-  assumptions: MarketAssumptions;
+  row: ListedEtf;
   selected: boolean;
   onPick: (product: EtfProduct) => void;
 }) {
-  const rate = planningRatePercent(estimateEtf(product, assumptions));
+  const { product, history, planning } = row;
   return (
     <li>
       <button type="button" aria-pressed={selected} onClick={() => onPick(product)}>
@@ -220,7 +287,10 @@ function Hit({
           <span>{product.shortName}</span>
           <small className="hit-isin">{product.isin}</small>
         </span>
-        <small>{formatPercentPoints(rate, 2)}</small>
+        <span className="hit-rates">
+          <small>{formatPercentPoints(planning, 2)}</small>
+          <small>{history == null ? '—' : formatPercentPoints(history, 2)}</small>
+        </span>
       </button>
     </li>
   );
@@ -257,6 +327,10 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
         <div>
           <dt>Forward</dt>
           <dd>{formatPercentPoints(estimate.forwardPercent, 2)}</dd>
+        </div>
+        <div>
+          <dt>Planning</dt>
+          <dd>{formatPercentPoints(planningRatePercent(estimate), 2)}</dd>
         </div>
       </dl>
       {history != null && estimate.historyYears >= 8 ? (

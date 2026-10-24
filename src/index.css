@@ -395,7 +395,18 @@ code, .mono { font-family: var(--mono); }
   -webkit-appearance: none;
   margin: 0;
 }
-.setting-control input[type='date'] { color-scheme: dark; }
+.setting-control input[type='date'],
+.setting-control select { color-scheme: dark; }
+.setting-control select {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 4px 0;
+  outline: none;
+  font-family: var(--mono);
+  font-size: 12px;
+}
 .setting-note {
   margin: 0;
   padding: 4px 2px 2px;
@@ -403,6 +414,7 @@ code, .mono { font-family: var(--mono); }
   font-size: 11px;
   line-height: 1.4;
 }
+.tooltip-share { color: #6e6e6e; font-weight: 400; }
 .unit {
   color: var(--text-dim);
   font-family: var(--mono);
@@ -568,6 +580,13 @@ code, .mono { font-family: var(--mono); }
   white-space: nowrap;
 }
 .etf-empty { color: var(--text-faint); padding: 8px 2px; font-size: 12px; }
+.show-more { margin-top: 10px; }
+.hit-rates {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .primary:hover { background: #fff; }
 .secondary:hover { background: #1a1a1a; border-color: #4a4a4a; }
