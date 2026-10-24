@@ -389,7 +389,17 @@ code, .mono { font-family: var(--mono); }
   -webkit-appearance: none;
   margin: 0;
 }
-.field-control input[type='date'] { color-scheme: dark; }
+.field-control input[type='date'],
+.field-control select { color-scheme: dark; }
+.field-control select {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 6px 0;
+  outline: none;
+  font-family: var(--mono);
+  font-size: 12px;
+}
 .tooltip-share { color: #6e6e6e; font-weight: 400; }
 .unit {
   color: var(--text-dim);
@@ -519,7 +529,7 @@ code, .mono { font-family: var(--mono); }
   font-size: 11px;
 }
 .etf-empty { color: var(--text-faint); padding: 8px 2px; font-size: 12px; }
-.method .secondary { margin-top: 12px; }
+.method .secondary, .show-more { margin-top: 12px; }
 .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .primary:hover { border-color: #8a8a8a; }
 .secondary:hover { background: #1e1e1e; border-color: #3a3a3a; }
