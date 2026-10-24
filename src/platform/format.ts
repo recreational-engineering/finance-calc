@@ -81,6 +81,28 @@ export function monthLabel(startDate: string, monthIndex: number): string {
   }).format(date);
 }
 
+/** Calendar day in `timeZone`, as YYYY-MM-DD. */
+export function calendarToday(timeZone = 'Europe/Berlin', now = new Date()): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(now);
+}
+
+export function dayLabel(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return iso;
+  const date = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  return new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  }).format(date);
+}
+
 export function horizonLabel(monthIndex: number): string {
   if (monthIndex <= 0) return 'Start';
   if (monthIndex % 12 === 0) return `Year ${monthIndex / 12}`;

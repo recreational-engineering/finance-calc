@@ -16,8 +16,9 @@ export const tools: ToolMeta[] = [
     channel: 'savings.plan',
     eyebrow: 'Savings plan',
     summary:
-      'Start a plan on a chosen date and run it forward for as many years as you like. Each entry has a name, a monthly amount, and its own yearly interest.',
-    outcome: 'A stacked chart of capital by entry, plus each entry’s share of the total.',
+      'Start a plan on a chosen date and run it forward for as many years as you like. Each entry has a name, a monthly amount, and its own yearly interest. The chart also draws what those deposits are worth at ETF market prices up to the latest quote.',
+    outcome:
+      'A stacked chart of estimated capital, the market value to date, and what that capital buys after a constant inflation rate.',
   },
   {
     id: 'etf',
