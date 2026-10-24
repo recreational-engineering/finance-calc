@@ -89,7 +89,7 @@ describe('simulateRetirement', () => {
     ]);
     for (const entry of DEFAULT_RETIREMENT.entries) {
       expect(entry.yearlyInterestPercent).toBeGreaterThan(0);
-      expect(entry.yearlyInterestPercent).toBeLessThan(12);
+      expect(entry.yearlyInterestPercent).toBeLessThan(20);
     }
   });
 

@@ -67,13 +67,63 @@ export function leverageBridge(
   return { total: total * 100, decay: decay * 100, financing: financing * 100 };
 }
 
+/** Share of a long history in the planning rate. The rest is the forward build. */
+export const HISTORY_FIT_WEIGHT = 0.85;
+
+/**
+ * Largest gap, in percentage points, between the planning rate and a long history.
+ * A forward build that disagrees by more than this is pulled back onto the history.
+ */
+export const HISTORY_FIT_GAP = 1.25;
+
+/** A window shorter than this is not treated as the long-term rate of the ETF. */
+export const HISTORY_FIT_YEARS = 8;
+
 export function historyBlendWeight(kind: ExposureKind, years: number, hasHistory: boolean): number {
-  if (!hasHistory) return 0;
-  if (kind === 'bond' || kind === 'cash' || kind === 'crypto' || kind === 'commodity') return 0;
-  if (years >= 25) return 0.5;
-  if (years >= 15) return 0.4;
-  if (years >= 8) return 0.25;
-  return 0;
+  if (!hasHistory || years < HISTORY_FIT_YEARS) return 0;
+  return HISTORY_FIT_WEIGHT + (kind === 'cash' ? 0 : 0);
+}
+
+/**
+ * Planning rate stays on the historic long-term rate. The forward build may
+ * nudge it, and never by more than `HISTORY_FIT_GAP` percentage points.
+ */
+export function fitPlanningRate(history: number | null, forward: number, years: number): number {
+  if (history == null || !(years >= HISTORY_FIT_YEARS) || !Number.isFinite(forward)) return forward;
+  const blended = HISTORY_FIT_WEIGHT * history + (1 - HISTORY_FIT_WEIGHT) * forward;
+  const gap = blended - history;
+  if (Math.abs(gap) > HISTORY_FIT_GAP) return history + Math.sign(gap) * HISTORY_FIT_GAP;
+  return blended;
+}
+
+export interface GrowthPoint {
+  year: number;
+  label: string;
+  historic: number;
+  estimate: number;
+}
+
+/** €10,000 compounded at the historic long-term rate and at the planning rate. */
+export function growthComparison(
+  historicAnnualPercent: number,
+  estimateAnnualPercent: number,
+  years: number,
+  startEuro = 10_000,
+): GrowthPoint[] {
+  const span = Math.max(1, years);
+  const steps = Math.min(40, Math.max(8, Math.round(span)));
+  const points: GrowthPoint[] = [];
+  for (let step = 0; step <= steps; step += 1) {
+    const year = (span * step) / steps;
+    const label = year === 0 ? 'Start' : `Year ${year.toLocaleString('en-GB', { maximumFractionDigits: 1 })}`;
+    points.push({
+      year,
+      label,
+      historic: startEuro * Math.pow(1 + historicAnnualPercent / 100, year),
+      estimate: startEuro * Math.pow(1 + estimateAnnualPercent / 100, year),
+    });
+  }
+  return points;
 }
 
 export function valuationAnnualPercent(fairOverCurrent: number, horizonYears: number): number {
@@ -285,7 +335,7 @@ export function estimateEtf(product: EtfProduct, rawAssumptions: MarketAssumptio
     historyPercent = historyBridge.total;
   }
   const historyWeight = historyBlendWeight(outlook.kind, outlook.historyYears, historyPercent != null);
-  const planningPercent = historyWeight * (historyPercent ?? 0) + (1 - historyWeight) * forwardPercent;
+  const planningPercent = fitPlanningRate(historyPercent, forwardPercent, outlook.historyYears);
 
   const cautions: string[] = [];
   if (outlook.caution) cautions.push(outlook.caution);
