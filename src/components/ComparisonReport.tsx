@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Side } from '../platform/narrate';
+import { COMPARE } from '../platform/palette';
 import {
   ChartCard,
   LineMoneyChart,
@@ -8,7 +9,7 @@ import {
   chartTicks,
   type MoneyPoint,
 } from './Charts';
-import { Warnings } from './Fields';
+import { StatusLine, Warnings } from './Fields';
 
 export function ComparisonReport({
   tone,
@@ -58,6 +59,7 @@ export function ComparisonReport({
     <div className="results">
       <Warnings items={warnings} />
       <div className={`verdict tone-${tone}`}>
+        <StatusLine warnings={warnings} />
         <h2>{title}</h2>
         <p>{body}</p>
       </div>
@@ -90,7 +92,7 @@ export function ComparisonReport({
           data={allocation}
           series={[
             { key: 'equity', name: equityLabel, color: equityColor, stack: 'left' },
-            { key: 'leftEtf', name: leftEtfLabel, color: '#c6a15b', stack: 'left' },
+            { key: 'leftEtf', name: leftEtfLabel, color: COMPARE.etf, stack: 'left' },
             { key: 'rightEtf', name: rightEtfLabel, color: rightColor, stack: 'right' },
           ]}
         />

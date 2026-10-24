@@ -1,15 +1,16 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { MoneyPoint } from '../../components/Charts';
 import { ComparisonReport } from '../../components/ComparisonReport';
 import { CheckField, Facts, FieldGroup, NumberField, Warnings } from '../../components/Fields';
 import { formatEur, formatNumber, formatPercentPoints } from '../../platform/format';
+import { COMPARE } from '../../platform/palette';
 import { comparisonNarrative, payoffLabel } from '../../platform/narrate';
 import { useStoredState } from '../../platform/storage';
 import { DEFAULT_LEASING, reviveLeasing, simulateLeasing } from './model';
 
-const LEFT = '#0e6e6b';
-const RIGHT = '#c4622d';
-const EQUITY = '#234e70';
+const LEFT = COMPARE.left;
+const RIGHT = COMPARE.right;
+const EQUITY = COMPARE.equity;
 
 export function LeasingTool() {
   const [input, setInput, reset] = useStoredState(
@@ -18,13 +19,6 @@ export function LeasingTool() {
     reviveLeasing,
   );
   const result = useMemo(() => simulateLeasing(input), [input]);
-
-  useEffect(() => {
-    document.title = 'Leasing — Klarwert';
-    return () => {
-      document.title = 'Klarwert — Munich finance tools';
-    };
-  }, []);
 
   const set = <K extends keyof typeof input>(key: K, value: (typeof input)[K]) => {
     setInput((current) => ({ ...current, [key]: value }));
@@ -71,8 +65,7 @@ export function LeasingTool() {
     <article className="workspace">
       <section className="panel">
         <header className="panel-intro">
-          <p className="eyebrow">Car</p>
-          <h1>Leasing</h1>
+          <p className="panel-kicker">Parameters</p>
           <p>
             Buy a car, or lease it and invest the free capital in an MSCI World ETF.
             The default is a new compact car paid in cash, against a 36-month private lease.
