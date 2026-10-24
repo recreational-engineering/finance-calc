@@ -10,8 +10,8 @@ export interface LeasingInput {
   purchasePrice: number;
   leasingFactor: number;
   leaseTermMonths: number;
-  /** Buyer sells the car and buys another after this many months. */
-  ownershipMonths: number;
+  /** Buyer sells the car and buys another after this many years. */
+  ownershipYears: number;
   /** Lessee buys the car when the first contract ends, instead of renewing. */
   buyAfterLease: boolean;
   /** Euro. 0 uses the depreciated value at the end of the contract. */
@@ -56,7 +56,7 @@ export const DEFAULT_LEASING: LeasingInput = {
   purchasePrice: 35000,
   leasingFactor: 0.95,
   leaseTermMonths: 36,
-  ownershipMonths: 96,
+  ownershipYears: 8,
   buyAfterLease: false,
   buyoutPrice: 0,
   sameStartingCapital: false,
@@ -118,6 +118,9 @@ export interface LeasingTotals {
   lesseeEtfContributions: number;
   buyerEtfWithdrawals: number;
   lesseeEtfWithdrawals: number;
+  /** Car money that was not in the ETF. It reduces net worth and is not given to the other life. */
+  buyerUnfunded: number;
+  lesseeUnfunded: number;
   buyerExpenditure: number;
   lesseeExpenditure: number;
 }
@@ -164,7 +167,14 @@ export function carValueAtYear(
 }
 
 export function reviveLeasing(value: unknown): LeasingInput | null {
-  return reviveFields(DEFAULT_LEASING, value);
+  const revived = reviveFields(DEFAULT_LEASING, value);
+  if (!revived || !value || typeof value !== 'object') return revived;
+  const raw = value as Record<string, unknown>;
+  const hasYears = typeof raw.ownershipYears === 'number' && Number.isFinite(raw.ownershipYears);
+  if (!hasYears && typeof raw.ownershipMonths === 'number' && Number.isFinite(raw.ownershipMonths) && raw.ownershipMonths > 0) {
+    revived.ownershipYears = raw.ownershipMonths / 12;
+  }
+  return revived;
 }
 
 function nonNegative(value: number): number {
@@ -206,6 +216,8 @@ function emptyTotals(): LeasingTotals {
     lesseeEtfContributions: 0,
     buyerEtfWithdrawals: 0,
     lesseeEtfWithdrawals: 0,
+    buyerUnfunded: 0,
+    lesseeUnfunded: 0,
     buyerExpenditure: 0,
     lesseeExpenditure: 0,
   };
@@ -227,7 +239,13 @@ function marketGain(afterTax: number, deposited: number, withdrawn: number): num
  * Same-capital saving is the other opening. Both start at 0 € and pay the
  * same amount into the ETF. The month the ETF can cover the car, the buyer
  * sells shares and buys it. The lessee keeps the shares, starts the lease,
- * and from then on saves only what the lease does not take.
+ * and from then on saves only what the lease does not take. That finish
+ * differs from the default because the saving years are inside the horizon
+ * and only the buyer spends the accumulated ETF.
+ *
+ * A later car purchase — the buyer’s replacement, or the lessee’s buyout —
+ * is paid from that person’s ETF. It is not invested by the other life.
+ * Only the monthly lease, upkeep, and contract fees are shared that way.
  */
 export function simulateLeasing(input: LeasingInput): LeasingResult {
   const warnings: string[] = [];
@@ -247,11 +265,12 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
     term = 1;
     warnings.push('The lease term must be at least one month.');
   }
-  let ownershipMonths = Math.round(finiteOr(input.ownershipMonths, 96));
-  if (!(ownershipMonths >= 1)) {
-    ownershipMonths = 1;
-    warnings.push('The new-car interval must be at least one month.');
+  let ownershipYears = finiteOr(input.ownershipYears, 8);
+  if (!(ownershipYears > 0)) {
+    ownershipYears = 8;
+    warnings.push('Set how many years the buyer keeps a car.');
   }
+  const ownershipMonths = Math.max(1, Math.round(ownershipYears * 12));
 
   const sameCapital = input.sameStartingCapital === true;
   const buyAfterLease = input.buyAfterLease === true;
@@ -264,7 +283,7 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
   }
   if (buyAfterLease && ownershipMonths <= term) {
     warnings.push(
-      'The new-car interval is shorter than the lease, so a car bought at the end of the lease is replaced the next month.',
+      'The buyer replaces the car sooner than the lease ends, so a car bought at the end of the lease is replaced the next month.',
     );
   }
 
@@ -349,6 +368,8 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
   let buyoutMonth: number | null = null;
   let buyerShortfall = false;
   let lesseeShortfall = false;
+  let buyerUnfunded = 0;
+  let lesseeUnfunded = 0;
 
   const replaceBuyer = (month: number): number => {
     const sale = valueOf(buyerAge);
@@ -385,16 +406,14 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
     return purchasePrice + registration - sale;
   };
 
-  const buyerBill = (month: number): number => {
-    if (!buyerOwns) return 0;
+  const buyerBill = (month: number): { running: number; capital: number } => {
+    if (!buyerOwns) return { running: 0, capital: 0 };
     if (buyerJustPurchased) {
       buyerJustPurchased = false;
-      return 0;
+      return { running: 0, capital: 0 };
     }
-    let extra = 0;
-    if (buyerAge >= ownershipMonths) {
-      extra = replaceBuyer(month);
-    }
+    let capital = 0;
+    if (buyerAge >= ownershipMonths) capital = replaceBuyer(month);
     const upkeep = ownerUpkeep(buyerAge);
     totals.ownerMaintenance += upkeep;
     const step = amortizeMonth(loanBalance, loanRate, loanBalance > 0 ? loanPayment : 0);
@@ -402,38 +421,39 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
     totals.loanInterest += step.interest;
     totals.loanPrincipal += step.principal;
     buyerAge += 1;
-    return step.payment + upkeep + extra;
+    return { running: step.payment + upkeep, capital };
   };
 
-  const lesseeBill = (month: number): number => {
+  const lesseeBill = (month: number): { running: number; capital: number } => {
     if (lesseeOwns) {
-      let extra = 0;
-      if (lesseeAge >= ownershipMonths) extra = replaceLessee();
+      let capital = 0;
+      if (lesseeAge >= ownershipMonths) capital = replaceLessee();
       const upkeep = ownerUpkeep(lesseeAge);
       totals.lesseeOwnerMaintenance += upkeep;
       lesseeAge += 1;
-      return upkeep + extra;
+      return { running: upkeep, capital };
     }
-    if (!leaseOpen || leaseStartMonth === null) return 0;
-    let cash = monthlyLease + nonNegative(input.leaseMaintenance);
+    if (!leaseOpen || leaseStartMonth === null) return { running: 0, capital: 0 };
+    let running = monthlyLease + nonNegative(input.leaseMaintenance);
     totals.leasePayments += monthlyLease;
     totals.leaseMaintenance += nonNegative(input.leaseMaintenance);
     const elapsed = month - leaseStartMonth;
     const renewal = !buyAfterLease && elapsed > 0 && elapsed % term === 0;
     if (renewal) {
-      cash += special + transfer;
+      running += special + transfer;
       totals.specialPayments += special;
       totals.transferFees += transfer;
       contracts += 1;
     }
     if (sameCapital && month === leaseStartMonth) {
-      cash += special + transfer;
+      running += special + transfer;
       totals.specialPayments += special;
       totals.transferFees += transfer;
     }
+    let capital = 0;
     const contractEnd = leaseStartMonth + term - 1;
     if (buyAfterLease && month === contractEnd) {
-      cash += buyoutPrice + registration;
+      capital = buyoutPrice + registration;
       totals.lesseeBuyout += buyoutPrice;
       totals.lesseeRegistration += registration;
       lesseeOwns = true;
@@ -443,7 +463,7 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
       leaseOpen = false;
       buyoutMonth = month;
     }
-    return cash;
+    return { running, capital };
   };
 
   const noteShortfall = (who: 'buyer' | 'lessee', raised: number, needed: number) => {
@@ -458,6 +478,27 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
     }
   };
 
+  const settleCapital = (who: 'buyer' | 'lessee', amount: number) => {
+    if (!(amount > 0) && !(amount < 0)) return;
+    const account = who === 'buyer' ? buyerEtf : lesseeEtf;
+    if (amount > 0) {
+      const raised = account.withdrawNet(amount);
+      const unpaid = Math.max(0, amount - raised);
+      if (who === 'buyer') {
+        totals.buyerEtfWithdrawals += raised;
+        buyerUnfunded += unpaid;
+      } else {
+        totals.lesseeEtfWithdrawals += raised;
+        lesseeUnfunded += unpaid;
+      }
+      noteShortfall(who, raised, amount);
+    } else {
+      account.deposit(-amount);
+      if (who === 'buyer') totals.buyerEtfContributions += -amount;
+      else totals.lesseeEtfContributions += -amount;
+    }
+  };
+
   const fund = (who: 'buyer' | 'lessee', costs: number) => {
     const account = who === 'buyer' ? buyerEtf : lesseeEtf;
     const net = monthlySavings - costs;
@@ -467,8 +508,14 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
       else totals.lesseeEtfContributions += net;
     } else if (net < 0) {
       const raised = account.withdrawNet(-net);
-      if (who === 'buyer') totals.buyerEtfWithdrawals += raised;
-      else totals.lesseeEtfWithdrawals += raised;
+      const unpaid = Math.max(0, -net - raised);
+      if (who === 'buyer') {
+        totals.buyerEtfWithdrawals += raised;
+        buyerUnfunded += unpaid;
+      } else {
+        totals.lesseeEtfWithdrawals += raised;
+        lesseeUnfunded += unpaid;
+      }
       noteShortfall(who, raised, -net);
     }
   };
@@ -489,8 +536,8 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
       lesseeCarEquity: lesseeCarValue,
       buyerEtfNet,
       lesseeEtfNet,
-      buyerNet: carEquity + buyerEtfNet,
-      lesseeNet: lesseeCarValue + lesseeEtfNet,
+      buyerNet: carEquity + buyerEtfNet - buyerUnfunded,
+      lesseeNet: lesseeCarValue + lesseeEtfNet - lesseeUnfunded,
       buyerCash,
       lesseeCash,
       buyerMarketGain: marketGain(
@@ -539,8 +586,10 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
       totals.buyerEtfContributions += monthlySavings;
       totals.lesseeEtfContributions += monthlySavings;
     } else {
-      buyerCash = buyerBill(month);
-      lesseeCash = lesseeBill(month);
+      const buyerPart = buyerBill(month);
+      const lesseePart = lesseeBill(month);
+      buyerCash = buyerPart.running + buyerPart.capital;
+      lesseeCash = lesseePart.running + lesseePart.capital;
       if (purchasedThisMonth) buyerCash += cashNeeded;
       if (sameCapital) {
         if (purchasedThisMonth) {
@@ -548,14 +597,15 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
           totals.buyerEtfContributions += monthlySavings;
           const raised = buyerEtf.withdrawNet(cashNeeded);
           totals.buyerEtfWithdrawals += raised;
+          buyerUnfunded += Math.max(0, cashNeeded - raised);
           noteShortfall('buyer', raised, cashNeeded);
-          fund('lessee', lesseeCash);
+          fund('lessee', lesseePart.running + lesseePart.capital);
         } else {
-          fund('buyer', buyerCash);
-          fund('lessee', lesseeCash);
+          fund('buyer', buyerPart.running + buyerPart.capital);
+          fund('lessee', lesseePart.running + lesseePart.capital);
         }
       } else {
-        const gap = buyerCash - lesseeCash;
+        const gap = buyerPart.running - lesseePart.running;
         if (gap > 0) {
           lesseeEtf.deposit(gap);
           totals.lesseeEtfContributions += gap;
@@ -563,6 +613,8 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
           buyerEtf.deposit(-gap);
           totals.buyerEtfContributions += -gap;
         }
+        settleCapital('buyer', buyerPart.capital);
+        settleCapital('lessee', lesseePart.capital);
       }
     }
 
@@ -598,8 +650,14 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
   if (lesseeOwns) totals.lesseeDepreciation += lesseeBasis - valueOf(lesseeAge);
 
   const final = points[points.length - 1];
+  totals.buyerUnfunded = buyerUnfunded;
+  totals.lesseeUnfunded = lesseeUnfunded;
   totals.buyerExpenditure =
-    totals.depreciation + totals.loanInterest + totals.ownerMaintenance + totals.registration;
+    totals.depreciation +
+    totals.loanInterest +
+    totals.ownerMaintenance +
+    totals.registration +
+    buyerUnfunded;
   totals.lesseeExpenditure =
     totals.leasePayments +
     totals.specialPayments +
@@ -607,7 +665,8 @@ export function simulateLeasing(input: LeasingInput): LeasingResult {
     totals.leaseMaintenance +
     totals.lesseeOwnerMaintenance +
     totals.lesseeDepreciation +
-    totals.lesseeRegistration;
+    totals.lesseeRegistration +
+    lesseeUnfunded;
 
   return {
     points,

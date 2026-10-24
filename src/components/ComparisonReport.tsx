@@ -25,6 +25,8 @@ export function ComparisonReport({
   netWorth,
   cash,
   allocation,
+  allocationAsLines = false,
+  allocationCaption,
   equityLabel,
   leftEtfLabel,
   rightEtfLabel,
@@ -51,6 +53,9 @@ export function ComparisonReport({
   netWorth: MoneyPoint[];
   cash: MoneyPoint[];
   allocation: MoneyPoint[];
+  /** Draw each capital line across the months. The bar chart is the default. */
+  allocationAsLines?: boolean;
+  allocationCaption?: string;
   equityLabel: string;
   leftEtfLabel: string;
   rightEtfLabel: string;
@@ -69,12 +74,12 @@ export function ComparisonReport({
   const showRightEquity =
     Boolean(rightEquityLabel) && allocation.some((row) => Number(row.rightEquity) > 1);
   const allocationSeries = [
-    { key: 'equity', name: equityLabel, color: equityColor, stack: 'left' },
-    { key: 'leftEtf', name: leftEtfLabel, color: COMPARE.etf, stack: 'left' },
+    { key: 'equity', name: equityLabel, color: equityColor, stack: allocationAsLines ? undefined : 'left' },
+    { key: 'leftEtf', name: leftEtfLabel, color: COMPARE.etf, stack: allocationAsLines ? undefined : 'left' },
     ...(showRightEquity
-      ? [{ key: 'rightEquity', name: rightEquityLabel ?? '', color: rightEquityColor, stack: 'right' }]
+      ? [{ key: 'rightEquity', name: rightEquityLabel ?? '', color: rightEquityColor, stack: allocationAsLines ? undefined : 'right' }]
       : []),
-    { key: 'rightEtf', name: rightEtfLabel, color: rightColor, stack: 'right' },
+    { key: 'rightEtf', name: rightEtfLabel, color: rightColor, stack: allocationAsLines ? undefined : 'right' },
   ];
 
   return (
@@ -108,9 +113,18 @@ export function ComparisonReport({
       </ChartCard>
       <ChartCard
         title="Capital allocation"
-        caption="Where the wealth sits. Each year has two stacks, one per life."
+        caption={
+          allocationCaption ??
+          (allocationAsLines
+            ? 'Each line is one part of a life’s wealth. The axis marks the year.'
+            : 'Where the wealth sits. Each year has two stacks, one per life.')
+        }
       >
-        <StackedBarChart data={allocation} series={allocationSeries} />
+        {allocationAsLines ? (
+          <LineMoneyChart data={allocation} ticks={ticks} series={allocationSeries} />
+        ) : (
+          <StackedBarChart data={allocation} series={allocationSeries} />
+        )}
       </ChartCard>
       {etfBalances && etfBalances.length > 0 ? (
         <ChartCard title="ETF after exit tax" caption={etfCaption}>
