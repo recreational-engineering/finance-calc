@@ -1,30 +1,38 @@
 import { useMemo, useState } from 'react';
 import { formatPercentPoints } from '../../platform/format';
 import type { MarketAssumptions } from './assumptions';
-import { etfProducts, searchEtfs, type EtfProduct } from './catalog';
+import { etfByIsin, etfProducts, searchEtfs, type EtfProduct } from './catalog';
 import { estimateEtf, planningRatePercent } from './model';
 
 export function EtfSearch({
   id,
   assumptions,
   onPick,
+  selectedIsin,
 }: {
   id: string;
   assumptions: MarketAssumptions;
   onPick: (product: EtfProduct) => void;
+  selectedIsin?: string;
 }) {
   const [query, setQuery] = useState('');
   const matches = useMemo(() => searchEtfs(etfProducts, query, 8), [query]);
+  const selected = selectedIsin ? etfByIsin.get(selectedIsin) : undefined;
 
   return (
     <div className="etf-search">
-      <label className="field" htmlFor={id}>
-        <span className="field-label">ETF at DKB</span>
-        <span className="field-control">
+      <label className="setting" htmlFor={id}>
+        <span className="setting-copy">
+          <span className="setting-label">ETF</span>
+          {selected ? null : (
+            <span className="setting-hint">Search the DKB list, or type a rate below</span>
+          )}
+        </span>
+        <span className="setting-control">
           <input
             id={id}
             value={query}
-            placeholder="Name, ISIN, or WKN"
+            placeholder={selected ? selected.isin : 'Name or ISIN'}
             autoComplete="off"
             onChange={(event) => setQuery(event.target.value)}
           />
@@ -47,9 +55,7 @@ export function EtfSearch({
                     }}
                   >
                     <span>{product.shortName}</span>
-                    <small>
-                      {product.isin} · {formatPercentPoints(rate, 2)}
-                    </small>
+                    <small>{formatPercentPoints(rate, 2)}</small>
                   </button>
                 </li>
               );

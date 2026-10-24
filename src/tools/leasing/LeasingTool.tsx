@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { MoneyPoint } from '../../components/Charts';
 import { ComparisonReport } from '../../components/ComparisonReport';
-import { CheckField, Facts, FieldGroup, NumberField, Warnings } from '../../components/Fields';
+import { CheckField, FieldGroup, NumberField, SettingsPanel, Warnings } from '../../components/Fields';
 import { formatEur, formatNumber, formatPercentPoints, horizonLabel } from '../../platform/format';
 import { COMPARE } from '../../platform/palette';
 import { comparisonNarrative, payoffLabel } from '../../platform/narrate';
@@ -80,16 +80,9 @@ export function LeasingTool() {
 
   return (
     <article className="workspace">
-      <section className="panel">
-        <header className="panel-intro">
-          <p className="panel-kicker">Parameters</p>
-          <p>
-            Buy a car, or lease it and invest the money you did not spend. Fuel, insurance,
-            tax, and parking are left out, because both lives drive the same car.
-          </p>
-        </header>
+      <SettingsPanel>
         <FieldGroup title="Time">
-          <NumberField label="Horizon" value={input.horizonYears} min={1} max={25} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
+          <NumberField label="Years" value={input.horizonYears} min={1} max={25} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
           <NumberField
             label="Replace the car every"
             value={input.ownershipYears}
@@ -111,7 +104,7 @@ export function LeasingTool() {
           <NumberField label="Special payment" value={input.specialPayment} min={0} step={100} unit="€" hint="Sonderzahlung at the start of each contract." onChange={(v) => set('specialPayment', v)} />
           <NumberField label="Transfer fee" value={input.transferFee} min={0} step={50} unit="€" hint="Überführung at the start of each contract." onChange={(v) => set('transferFee', v)} />
           <CheckField
-            label="Buy the car when the contract ends"
+            label="Buy at the end of the contract"
             checked={input.buyAfterLease}
             hint="One contract. The lessee then pays the buyout from their ETF and owns the car."
             onChange={(v) => set('buyAfterLease', v)}
@@ -141,8 +134,10 @@ export function LeasingTool() {
           />
           {input.sameStartingCapital ? (
             <>
-              <p className="line-note">
-                The finish changes because this purchase happens later. Both save the same amount until the ETF can buy the car, and those years count inside the horizon. The buyer then spends the ETF. The lessee keeps it invested and saves less once the lease starts.
+              <p className="setting-note">
+                The finish changes because this purchase happens later. Both save the same amount
+                until the ETF can buy the car, and those years count inside the horizon. The buyer
+                then spends the ETF. The lessee keeps it invested and saves less once the lease starts.
               </p>
               <NumberField
                 label="Monthly saving"
@@ -159,50 +154,80 @@ export function LeasingTool() {
         <FieldGroup title="ETF">
           <NumberField label="Expected return" value={input.msciReturnPercent} step={0.1} unit="% / year" hint="Nominal MSCI World return, before German fund tax." onChange={(v) => set('msciReturnPercent', v)} />
         </FieldGroup>
-        <details className="method">
-          <summary>Depreciation and upkeep</summary>
-          <div className="fields">
-            <NumberField label="Drop in year one" value={input.firstYearDropPercent} min={0} max={100} step={1} unit="%" onChange={(v) => set('firstYearDropPercent', v)} />
-            <NumberField label="Drop each later year" value={input.laterDropPercent} min={0} max={100} step={1} unit="%" onChange={(v) => set('laterDropPercent', v)} />
-            <NumberField label="Owner upkeep" value={input.ownerMaintenanceBase} min={0} step={5} unit="€ / month" hint="First year of owning the car." onChange={(v) => set('ownerMaintenanceBase', v)} />
-            <NumberField label="Extra upkeep each year of age" value={input.ownerMaintenanceAgeStep} min={0} step={1} unit="€ / month" onChange={(v) => set('ownerMaintenanceAgeStep', v)} />
-            <NumberField label="Lease upkeep" value={input.leaseMaintenance} min={0} step={5} unit="€ / month" hint="Stays flat, because the leased car is replaced by a new contract." onChange={(v) => set('leaseMaintenance', v)} />
-            <NumberField label="Registration" value={input.registrationFee} min={0} step={10} unit="€" hint="Paid each time someone buys a car, including a buyout." onChange={(v) => set('registrationFee', v)} />
-          </div>
-        </details>
-        <details className="method">
-          <summary>Finance the purchase</summary>
-          <div className="fields">
-            <CheckField
-              label="Buy with a car loan"
-              checked={input.financePurchase}
-              hint="Off by default. Cash purchase is what frees the whole price for the ETF. Same-capital saving buys with the ETF and does not use the loan."
-              onChange={(v) => set('financePurchase', v)}
-            />
-            {input.financePurchase ? (
-              <>
-                <NumberField label="Down payment" value={input.downPaymentPercent} min={0} max={100} step={1} unit="%" onChange={(v) => set('downPaymentPercent', v)} />
-                <NumberField label="Loan interest" value={input.loanRatePercent} step={0.1} unit="%" onChange={(v) => set('loanRatePercent', v)} />
-                <NumberField label="Loan term" value={input.loanYears} min={1} max={12} step={1} unit="years" onChange={(v) => set('loanYears', v)} />
-              </>
-            ) : null}
-          </div>
-        </details>
-        <details className="method">
-          <summary>German ETF tax</summary>
-          <div className="fields">
-            <CheckField
-              label="Apply fund tax"
-              checked={input.applyEtfTax}
-              hint="Same Vorabpauschale model as the flat tool. Teilfreistellung 30%, tax 26.375%, no church tax."
-              onChange={(v) => set('applyEtfTax', v)}
-            />
-            <NumberField label="Basiszins" value={input.basiszinsPercent} step={0.01} unit="%" onChange={(v) => set('basiszinsPercent', v)} />
-            <NumberField label="Sparerpauschbetrag" value={input.allowance} min={0} step={100} unit="€ / year" onChange={(v) => set('allowance', v)} />
-          </div>
-        </details>
-        <Facts
-          items={[
+        <FieldGroup title="Depreciation and upkeep" collapsed>
+          <NumberField label="Drop in year one" value={input.firstYearDropPercent} min={0} max={100} step={1} unit="%" onChange={(v) => set('firstYearDropPercent', v)} />
+          <NumberField label="Drop each later year" value={input.laterDropPercent} min={0} max={100} step={1} unit="%" onChange={(v) => set('laterDropPercent', v)} />
+          <NumberField label="Owner upkeep" value={input.ownerMaintenanceBase} min={0} step={5} unit="€ / month" hint="First year of owning the car." onChange={(v) => set('ownerMaintenanceBase', v)} />
+          <NumberField label="Extra upkeep each year of age" value={input.ownerMaintenanceAgeStep} min={0} step={1} unit="€ / month" onChange={(v) => set('ownerMaintenanceAgeStep', v)} />
+          <NumberField label="Lease upkeep" value={input.leaseMaintenance} min={0} step={5} unit="€ / month" hint="Stays flat, because the leased car is replaced by a new contract." onChange={(v) => set('leaseMaintenance', v)} />
+          <NumberField label="Registration" value={input.registrationFee} min={0} step={10} unit="€" hint="Paid each time someone buys a car, including a buyout." onChange={(v) => set('registrationFee', v)} />
+        </FieldGroup>
+        <FieldGroup title="Finance the purchase" collapsed>
+          <CheckField
+            label="Buy with a car loan"
+            checked={input.financePurchase}
+            hint="Off by default. A cash purchase leaves the price invested. Saving from 0 € buys with the ETF and does not use this loan."
+            onChange={(v) => set('financePurchase', v)}
+          />
+          {input.financePurchase ? (
+            <>
+              <NumberField label="Down payment" value={input.downPaymentPercent} min={0} max={100} step={1} unit="%" onChange={(v) => set('downPaymentPercent', v)} />
+              <NumberField label="Loan interest" value={input.loanRatePercent} step={0.1} unit="%" onChange={(v) => set('loanRatePercent', v)} />
+              <NumberField label="Loan term" value={input.loanYears} min={1} max={12} step={1} unit="years" onChange={(v) => set('loanYears', v)} />
+            </>
+          ) : null}
+        </FieldGroup>
+        <FieldGroup title="German ETF tax" collapsed>
+          <CheckField
+            label="Apply fund tax"
+            checked={input.applyEtfTax}
+            hint="Same Vorabpauschale model as the flat tool. Teilfreistellung 30%, tax 26.375%, no church tax."
+            onChange={(v) => set('applyEtfTax', v)}
+          />
+          <NumberField label="Basiszins" value={input.basiszinsPercent} step={0.01} unit="%" onChange={(v) => set('basiszinsPercent', v)} />
+          <NumberField label="Sparerpauschbetrag" value={input.allowance} min={0} step={100} unit="€ / year" onChange={(v) => set('allowance', v)} />
+        </FieldGroup>
+        <div className="row-actions">
+          <button type="button" className="secondary" onClick={reset}>
+            Reset example
+          </button>
+        </div>
+      </SettingsPanel>
+      {result.points.length > 0 && last ? (
+        <ComparisonReport
+          tone={narrative.tone}
+          title={narrative.title}
+          body={narrative.body}
+          warnings={result.warnings}
+          stats={[
+            { label: 'Buying, net worth', value: formatEur(result.finalBuyerNet) },
+            { label: 'Leasing, net worth', value: formatEur(result.finalLesseeNet) },
+            { label: 'Gap', value: formatEur(Math.abs(gap)) },
+          ]}
+          leftName="Buying"
+          rightName="Leasing"
+          leftColor={LEFT}
+          rightColor={RIGHT}
+          equityColor={EQUITY}
+          netWorth={netWorth}
+          cash={cash}
+          allocation={allocation}
+          allocationAsLines
+          allocationCaption="Each line is one part of a life’s wealth, every month. A new car lifts the buyer’s car line and lowers the buyer’s ETF by what the sale did not cover."
+          equityLabel="Buyer’s car"
+          rightEquityLabel="Lessee’s car"
+          leftEtfLabel="Buyer’s ETF"
+          rightEtfLabel="Lessee’s ETF"
+          etfBalances={etfBalances}
+          etfCaption={
+            input.sameStartingCapital
+              ? 'Both start at 0 €. The buyer pays for the car from the ETF. The lessee keeps the shares.'
+              : 'Balance after exit tax. A replacement is paid from the buyer’s ETF.'
+          }
+          gain={gain}
+          gainCaption="Market growth after fund tax. Money paid in or taken out is not included."
+          cashCaption={cashCaption(input, result)}
+          facts={[
             { label: 'Monthly lease', value: formatEur(result.monthlyLease, 2) },
             { label: 'Contracts', value: formatNumber(result.contracts) },
             { label: 'Cars the buyer purchases', value: formatNumber(result.buyerPurchases) },
@@ -249,43 +274,6 @@ export function LeasingTool() {
                 ]
               : []),
           ]}
-        />
-        <div className="row-actions">
-          <button type="button" className="secondary" onClick={reset}>
-            Reset example
-          </button>
-        </div>
-      </section>
-      {result.points.length > 0 && last ? (
-        <ComparisonReport
-          tone={narrative.tone}
-          title={narrative.title}
-          body={narrative.body}
-          warnings={result.warnings}
-          stats={[
-            { label: 'Buying, net worth', value: formatEur(result.finalBuyerNet) },
-            { label: 'Leasing, net worth', value: formatEur(result.finalLesseeNet) },
-            { label: 'Gap', value: formatEur(Math.abs(gap)) },
-          ]}
-          leftName="Buying"
-          rightName="Leasing"
-          leftColor={LEFT}
-          rightColor={RIGHT}
-          equityColor={EQUITY}
-          netWorth={netWorth}
-          cash={cash}
-          allocation={allocation}
-          allocationAsLines
-          allocationCaption="Each line is one part of a life’s wealth, every month. The marks on the axis are years. A new car lifts the buyer’s car line and lowers the buyer’s ETF by what the sale did not cover."
-          equityLabel="Buyer’s car"
-          rightEquityLabel="Lessee’s car"
-          leftEtfLabel="Buyer’s ETF"
-          rightEtfLabel="Lessee’s ETF"
-          etfBalances={etfBalances}
-          etfCaption={etfCaption(input, result)}
-          gain={gain}
-          gainCaption="Growth from the market after German fund tax. Money paid in or taken out is not on this line, so the larger balance earns more."
-          cashCaption={cashCaption(input, result)}
           rows={[
             { label: 'Net worth', left: formatEur(result.finalBuyerNet), right: formatEur(result.finalLesseeNet) },
             {
@@ -371,36 +359,6 @@ function narrativeDetail(input: LeasingInput, result: LeasingResult): string {
   return `${opening}${replacement}${buyout}`;
 }
 
-function etfCaption(input: LeasingInput, result: LeasingResult): string {
-  const first = result.points[0];
-  const last = result.points[result.points.length - 1];
-  if (!first || !last) return '';
-  const buyerRise = last.buyerEtfNet - first.buyerEtfNet;
-  const lesseeRise = last.lesseeEtfNet - first.lesseeEtfNet;
-  const returns = `Market return after tax is ${formatEur(result.lesseeMarketGain)} for the lessee and ${formatEur(result.buyerMarketGain)} for the buyer. The lessee’s balance changes by ${formatEur(lesseeRise)} and the buyer’s by ${formatEur(buyerRise)}.`;
-  if (input.sameStartingCapital) {
-    const when = result.acquisitionMonth
-      ? `Both lines start at 0 € and match until ${horizonLabel(result.acquisitionMonth)}, when the buyer pays for the car from the ETF and the lessee keeps it.`
-      : 'Both lines start at 0 €. The saving does not reach the car price inside the horizon.';
-    const after = result.acquisitionMonth
-      ? ` From then on the lessee ${investsPhrase(input.monthlySavings - result.monthlyLease - input.leaseMaintenance)} and the buyer ${investsPhrase(input.monthlySavings - input.ownerMaintenanceBase)}, before upkeep rises with the car’s age.`
-      : '';
-    return `${when}${after} ${returns}`;
-  }
-  const interest = input.purchasePrice * (input.msciReturnPercent / 100);
-  const extra = (result.monthlyLease + input.leaseMaintenance - input.ownerMaintenanceBase) * 12;
-  const gap =
-    extra >= 0
-      ? `In the first year the lease costs about ${formatEur(extra)} more than upkeep, and the buyer invests that difference.`
-      : `In the first year upkeep costs about ${formatEur(-extra)} more than the lease, and the lessee invests that difference.`;
-  return `${returns} Interest on the price you pay is about ${formatEur(interest)} a year. ${gap} The balance rises faster for whoever adds more new savings than that interest.`;
-}
-
-function investsPhrase(amount: number): string {
-  if (amount >= 0) return `invests ${formatEur(amount)} a month`;
-  return `draws ${formatEur(-amount)} a month from the ETF`;
-}
-
 function cashCaption(input: LeasingInput, result: LeasingResult): string {
   const parts = [
     input.sameStartingCapital
@@ -439,14 +397,16 @@ function LeasingMethod() {
           If that bill is larger than the saving, the difference is sold out of the ETF.
         </p>
         <p>
-          The buyer sells the car after the number of years you set and buys another at the same price.
-          The net cost, after the sale, comes out of the buyer’s ETF. The lessee’s wealth does not rise because the buyer bought a car. The sale is untaxed, which is the usual case for a private sale at a loss. The
-          lease payment is list price × leasing factor / 100. A new contract starts every
-          term, with another special payment and transfer fee, unless the lessee buys the
-          car at the end of the first contract. The buyout defaults to the car’s depreciated
-          value. From then on the lessee pays owner upkeep and the car counts in their net
-          worth. If the horizon cuts a contract short, the model keeps charging the monthly
-          rate and does not add an early-return penalty.
+          The buyer sells the car after the number of years you set and buys another at the
+          same price. The net cost, after the sale, comes out of the buyer’s ETF. The
+          lessee’s wealth does not rise because the buyer bought a car. The sale is untaxed,
+          which is the usual case for a private sale at a loss. The lease payment is list
+          price × leasing factor / 100. A new contract starts every term, with another
+          special payment and transfer fee, unless the lessee buys the car at the end of the
+          first contract. The buyout defaults to the car’s depreciated value and is paid
+          from the lessee’s ETF. From then on the lessee pays owner upkeep and the car
+          counts in their net worth. If the horizon cuts a contract short, the model keeps
+          charging the monthly rate and does not add an early-return penalty.
         </p>
         <p>
           The car’s resale value falls by the year-one rate, linearly through that year,

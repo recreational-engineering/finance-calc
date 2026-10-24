@@ -9,7 +9,7 @@ import {
   chartTicks,
   type MoneyPoint,
 } from './Charts';
-import { StatusLine, Warnings } from './Fields';
+import { Facts, StatusLine, Warnings } from './Fields';
 
 export function ComparisonReport({
   tone,
@@ -39,6 +39,7 @@ export function ComparisonReport({
   etfCaption,
   gain,
   gainCaption,
+  facts,
 }: {
   tone: Side;
   title: string;
@@ -68,6 +69,7 @@ export function ComparisonReport({
   etfCaption?: string;
   gain?: MoneyPoint[];
   gainCaption?: string;
+  facts?: Array<{ label: string; value: string }>;
 }) {
   const lastMonth = netWorth[netWorth.length - 1]?.month ?? 0;
   const ticks = chartTicks(typeof lastMonth === 'number' ? lastMonth : 0);
@@ -98,9 +100,10 @@ export function ComparisonReport({
           </div>
         ))}
       </dl>
+      {facts && facts.length > 0 ? <Facts items={facts} /> : null}
       <ChartCard
         title="Net worth"
-        caption="What each life is worth if it stops that year. Property and the car are resale values; ETFs are after German exit tax."
+        caption="Resale value. ETFs are after German exit tax."
       >
         <LineMoneyChart
           data={netWorth}
@@ -117,7 +120,7 @@ export function ComparisonReport({
           allocationCaption ??
           (allocationAsLines
             ? 'Each line is one part of a life’s wealth. The axis marks the year.'
-            : 'Where the wealth sits. Each year has two stacks, one per life.')
+            : 'Two stacks each year, one per life.')
         }
       >
         {allocationAsLines ? (
