@@ -72,7 +72,8 @@ export function ChartCard({
 
 export function chartTicks(lastMonth: number): number[] {
   if (lastMonth <= 0) return [0];
-  const step = lastMonth > 20 * 12 ? 5 * 12 : lastMonth > 8 * 12 ? 2 * 12 : 12;
+  const step =
+    lastMonth > 50 * 12 ? 10 * 12 : lastMonth > 20 * 12 ? 5 * 12 : lastMonth > 8 * 12 ? 2 * 12 : 12;
   const ticks = [0];
   for (let month = step; month < lastMonth; month += step) ticks.push(month);
   if (ticks[ticks.length - 1] !== lastMonth) ticks.push(lastMonth);

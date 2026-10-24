@@ -88,25 +88,54 @@ describe('simulateLeasing', () => {
     expect(first.buyerMarketGain).toBeCloseTo(0, 6);
   });
 
-  it('pays for the buyer’s next car from the buyer’s ETF and leaves the lessee’s wealth unchanged', () => {
+  it('pays for the buyer’s next car from the buyer’s ETF and leaves the lessee’s wealth on its monthly path', () => {
     const result = simulateLeasing({
-      ...quiet,
-      ownershipYears: 3,
-      horizonYears: 6,
+      ...DEFAULT_LEASING,
+      ownershipYears: 8,
+      horizonYears: 20,
+      applyEtfTax: false,
     });
-    const sale = carValueAtYear(35_000, 3, 0.22, 0.12);
-    const netCost = 35_000 + 180 - sale;
-    expect(result.buyerPurchases).toBe(2);
-    expect(result.points[36].carValue).toBeCloseTo(sale, 4);
-    expect(result.points[37].carValue).toBeCloseTo(carValueAtYear(35_000, 1 / 12, 0.22, 0.12), 4);
-    expect(result.points[37].buyerCash).toBeCloseTo(45 + netCost, 4);
-    expect(result.points[37].lesseeNet).toBeCloseTo(result.points[36].lesseeNet, 4);
-    expect(result.points[37].lesseeEtfNet).toBeCloseTo(result.points[36].lesseeEtfNet, 4);
-    expect(result.totals.buyerEtfWithdrawals + result.totals.buyerUnfunded).toBeCloseTo(netCost, 2);
-    expect(Math.abs(result.points[37].buyerNet - result.points[36].buyerNet)).toBeLessThan(2_000);
-    expect(result.points[72].carValue).toBeCloseTo(sale, 4);
-    expect(result.totals.registration).toBe(360);
-    expect(result.totals.depreciation).toBeCloseTo(2 * (35_000 - sale), 4);
+    const jump = result.points.find(
+      (point, index) => index > 0 && point.carValue > result.points[index - 1].carValue + 5_000,
+    );
+    expect(jump).toBeTruthy();
+    const previous = result.points[jump!.month - 1];
+    expect(Math.abs(jump!.lesseeNet - previous.lesseeNet)).toBeLessThan(1_000);
+    expect(result.totals.buyerUnfunded).toBe(0);
+    expect(result.buyerPurchases).toBeGreaterThan(1);
+    expect(result.points.every((point) => point.buyerNet >= -1 && point.lesseeNet >= -1)).toBe(true);
+  });
+
+  it('runs past 40 years and caps only after 80', () => {
+    const long = simulateLeasing({ ...DEFAULT_LEASING, horizonYears: 45 });
+    expect(long.points[long.points.length - 1].month).toBe(45 * 12);
+    expect(long.warnings).toEqual([]);
+    const capped = simulateLeasing({ ...DEFAULT_LEASING, horizonYears: 90 });
+    expect(capped.points[capped.points.length - 1].month).toBe(80 * 12);
+    expect(capped.warnings.some((warning) => warning.includes('80'))).toBe(true);
+  });
+
+  it('changes only the lessee when the car is bought at the end of the lease', () => {
+    const base = simulateLeasing({ ...DEFAULT_LEASING, horizonYears: 40, ownershipYears: 8 });
+    const buy = simulateLeasing({
+      ...DEFAULT_LEASING,
+      horizonYears: 40,
+      ownershipYears: 8,
+      buyAfterLease: true,
+    });
+    expect(buy.points.length).toBe(base.points.length);
+    for (let index = 0; index < base.points.length; index += 1) {
+      expect(buy.points[index].buyerNet).toBeCloseTo(base.points[index].buyerNet, 4);
+      expect(buy.points[index].buyerEtfNet).toBeCloseTo(base.points[index].buyerEtfNet, 4);
+      expect(buy.points[index].carValue).toBeCloseTo(base.points[index].carValue, 4);
+    }
+    expect(buy.finalBuyerNet).toBeCloseTo(base.finalBuyerNet, 4);
+    expect(buy.buyoutMonth).toBe(36);
+    expect(buy.points[36].lesseeCarEquity).toBeGreaterThan(10_000);
+    expect(buy.points[36].lesseeNet).not.toBeCloseTo(base.points[36].lesseeNet, 0);
+    expect(buy.points.every((point) => point.buyerNet >= -1 && point.lesseeNet >= -1)).toBe(true);
+    expect(buy.totals.buyerUnfunded).toBe(0);
+    expect(buy.totals.lesseeUnfunded).toBe(0);
   });
 
   it('does not buy a new car when the ownership interval is the whole horizon', () => {
@@ -143,36 +172,28 @@ describe('simulateLeasing', () => {
     expect(result.points[36].lesseeCarEquity).toBeCloseTo(carValueAtYear(35_000, 3, 0.22, 0.12), 4);
   });
 
-  it('saves both ETFs from zero until the car is affordable, then keeps the lessee invested', () => {
-    const result = simulateLeasing({
-      ...quiet,
+  it('saving from zero keeps the same finish as starting with the car money', () => {
+    const base = simulateLeasing(DEFAULT_LEASING);
+    const saved = simulateLeasing({
+      ...DEFAULT_LEASING,
       sameStartingCapital: true,
-      monthlySavings: 1_000,
-      purchasePrice: 12_000,
-      listPrice: 12_000,
-      registrationFee: 0,
-      transferFee: 0,
-      specialPayment: 0,
-      leasingFactor: 1,
-      leaseMaintenance: 0,
-      ownerMaintenanceBase: 0,
-      ownerMaintenanceAgeStep: 0,
-      horizonYears: 2,
-      leaseTermMonths: 13,
+      monthlySavings: 600,
     });
-    expect(result.points[0].buyerEtfNet).toBe(0);
-    expect(result.points[0].lesseeEtfNet).toBe(0);
-    expect(result.acquisitionMonth).toBe(12);
-    expect(result.points[11].buyerEtfNet).toBeCloseTo(result.points[11].lesseeEtfNet, 6);
-    expect(result.points[11].carValue).toBe(0);
-    expect(result.points[12].carValue).toBeCloseTo(12_000, 4);
-    expect(result.points[12].buyerEtfNet).toBeCloseTo(0, 4);
-    expect(result.points[12].lesseeEtfNet).toBeCloseTo(11_000 + (1_000 - 120), 4);
-    expect(result.points[24].lesseeEtfNet).toBeGreaterThan(result.points[24].buyerEtfNet);
-    expect(result.totals.buyerEtfWithdrawals).toBeCloseTo(12_000, 4);
-    expect(result.buyerMarketGain).toBeCloseTo(0, 4);
-    expect(result.lesseeMarketGain).toBeCloseTo(0, 4);
-    expect(result.warnings.some((warning) => warning.includes('early-return'))).toBe(false);
+    expect(saved.points[0].buyerEtfNet).toBe(0);
+    expect(saved.points[0].lesseeEtfNet).toBe(0);
+    expect(saved.acquisitionMonth).toBeGreaterThan(1);
+    const bought = saved.points[saved.acquisitionMonth!];
+    expect(bought.carValue).toBeCloseTo(base.points[0].carValue, 4);
+    expect(bought.buyerEtfNet).toBeCloseTo(base.points[0].buyerEtfNet, 4);
+    expect(bought.lesseeEtfNet).toBeCloseTo(base.points[0].lesseeEtfNet, 4);
+    expect(saved.finalBuyerNet).toBeCloseTo(base.finalBuyerNet, 6);
+    expect(saved.finalLesseeNet).toBeCloseTo(base.finalLesseeNet, 6);
+    expect(saved.points[saved.points.length - 1].month).toBe(
+      base.points[base.points.length - 1].month + saved.acquisitionMonth!,
+    );
+    const before = saved.points[saved.acquisitionMonth! - 1];
+    expect(before.carValue).toBe(0);
+    expect(before.buyerEtfNet).toBeCloseTo(before.lesseeEtfNet, 4);
   });
 
   it('with tax and a positive return, keeps the ETFs identical until the buyer spends them', () => {
@@ -222,12 +243,12 @@ describe('simulateLeasing', () => {
       ownershipYears: 8,
     });
     expect(result.acquisitionMonth).toBe(1);
-    expect(result.buyoutMonth).toBe(6);
+    expect(result.buyoutMonth).toBe(1 + 6);
     expect(result.totals.leasePayments).toBeCloseTo(10 * 6, 6);
     expect(result.totals.lesseeBuyout).toBe(500);
-    expect(result.points[6].lesseeCarEquity).toBeCloseTo(price * (1 - 0.22 * 0.5), 4);
-    expect(result.points[7].lesseeCash).toBe(0);
-    expect(result.points[7].lesseeCarValue).toBeLessThan(result.points[6].lesseeCarValue);
+    expect(result.points[7].lesseeCarEquity).toBeCloseTo(price * (1 - 0.22 * 0.5), 4);
+    expect(result.points[8].lesseeCash).toBe(0);
+    expect(result.points[8].lesseeCarValue).toBeLessThan(result.points[7].lesseeCarValue);
     expect(result.warnings).toEqual([]);
   });
 
@@ -241,11 +262,11 @@ describe('simulateLeasing', () => {
     expect(result.acquisitionMonth).toBeNull();
     expect(result.buyerPurchases).toBe(0);
     expect(result.finalBuyerNet).toBeCloseTo(result.finalLesseeNet, 4);
-    expect(result.warnings.some((warning) => warning.includes('never bought'))).toBe(true);
+    expect(result.warnings.some((warning) => warning.includes('never reaches'))).toBe(true);
   });
 
-  it('finances the cash purchase and ignores the loan when saving from zero', () => {
-    const financed = simulateLeasing({ ...quiet, financePurchase: true });
+  it('keeps the financed comparison when the chart starts by saving from zero', () => {
+    const financed = simulateLeasing({ ...quiet, financePurchase: true, horizonYears: 1 });
     expect(financed.loan).toBeCloseTo(35_000 * 0.8, 6);
     expect(financed.buyerInitialCash).toBeCloseTo(35_000 * 0.2 + 180, 6);
     expect(financed.totals.loanInterest).toBeGreaterThan(0);
@@ -256,8 +277,9 @@ describe('simulateLeasing', () => {
       monthlySavings: 1_000,
       horizonYears: 1,
     });
-    expect(saved.loan).toBe(0);
-    expect(saved.warnings.some((warning) => warning.includes('loan is not used'))).toBe(true);
+    expect(saved.loan).toBeCloseTo(financed.loan, 6);
+    expect(saved.finalBuyerNet).toBeCloseTo(financed.finalBuyerNet, 4);
+    expect(saved.finalLesseeNet).toBeCloseTo(financed.finalLesseeNet, 4);
   });
 
   it('favours buying when the lease is expensive and the ETF does not grow', () => {

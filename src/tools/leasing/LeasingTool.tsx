@@ -6,7 +6,7 @@ import { formatEur, formatNumber, formatPercentPoints, horizonLabel } from '../.
 import { COMPARE } from '../../platform/palette';
 import { comparisonNarrative, payoffLabel } from '../../platform/narrate';
 import { useStoredState } from '../../platform/storage';
-import { DEFAULT_LEASING, plannedBuyoutPrice, reviveLeasing, simulateLeasing } from './model';
+import { DEFAULT_LEASING, LEASING_HORIZON_CAP, plannedBuyoutPrice, reviveLeasing, simulateLeasing } from './model';
 import type { LeasingInput, LeasingResult } from './model';
 
 const LEFT = COMPARE.left;
@@ -76,21 +76,20 @@ export function LeasingTool() {
   const gap = result.finalBuyerNet - result.finalLesseeNet;
   const residual = plannedBuyoutPrice({ ...input, buyoutPrice: 0 });
   const lesseeUpkeep = result.totals.leaseMaintenance + result.totals.lesseeOwnerMaintenance;
-  const lesseeSaving = input.monthlySavings - result.monthlyLease - input.leaseMaintenance;
 
   return (
     <article className="workspace">
       <SettingsPanel>
         <FieldGroup title="Time">
-          <NumberField label="Years" value={input.horizonYears} min={1} max={25} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
+          <NumberField label="Years" value={input.horizonYears} min={1} max={LEASING_HORIZON_CAP} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
           <NumberField
             label="Replace the car every"
             value={input.ownershipYears}
             min={1}
-            max={30}
+            max={LEASING_HORIZON_CAP}
             step={1}
             unit="years"
-            hint="The buyer sells and buys again. Set this longer than the horizon to keep one car."
+            hint="The buyer sells and buys again. Longer than the years above keeps one car."
             onChange={(v) => set('ownershipYears', v)}
           />
         </FieldGroup>
@@ -106,7 +105,7 @@ export function LeasingTool() {
           <CheckField
             label="Buy at the end of the contract"
             checked={input.buyAfterLease}
-            hint="One contract. The lessee then pays the buyout from their ETF and owns the car."
+            hint="Only the lessee changes. They pay the buyout from their ETF and then own the car. Buying stays the same."
             onChange={(v) => set('buyAfterLease', v)}
           />
           {input.buyAfterLease ? (
@@ -135,9 +134,9 @@ export function LeasingTool() {
           {input.sameStartingCapital ? (
             <>
               <p className="setting-note">
-                The finish changes because this purchase happens later. Both save the same amount
-                until the ETF can buy the car, and those years count inside the horizon. The buyer
-                then spends the ETF. The lessee keeps it invested and saves less once the lease starts.
+                The finish is the same number of years, with the same result. The chart adds the
+                saving in front: both ETFs rise together until they can buy the car, then this
+                comparison starts.
               </p>
               <NumberField
                 label="Monthly saving"
@@ -145,7 +144,7 @@ export function LeasingTool() {
                 min={0}
                 step={50}
                 unit="€ / month"
-                hint="What each person can put toward the car and the ETF. The lease and upkeep come out of this."
+                hint="How fast both people reach the car money. It does not change the comparison after that."
                 onChange={(v) => set('monthlySavings', v)}
               />
             </>
@@ -166,7 +165,7 @@ export function LeasingTool() {
           <CheckField
             label="Buy with a car loan"
             checked={input.financePurchase}
-            hint="Off by default. A cash purchase leaves the price invested. Saving from 0 € buys with the ETF and does not use this loan."
+            hint="Off by default. A cash purchase leaves the price invested."
             onChange={(v) => set('financePurchase', v)}
           />
           {input.financePurchase ? (
@@ -221,7 +220,7 @@ export function LeasingTool() {
           etfBalances={etfBalances}
           etfCaption={
             input.sameStartingCapital
-              ? 'Both start at 0 €. The buyer pays for the car from the ETF. The lessee keeps the shares.'
+              ? 'The years before the car is bought are only the path to the same comparison. The finish matches this horizon with saving turned off.'
               : 'Balance after exit tax. A replacement is paid from the buyer’s ETF.'
           }
           gain={gain}
@@ -240,19 +239,11 @@ export function LeasingTool() {
             ...(input.sameStartingCapital
               ? [
                   {
-                    label: 'ETF buys the car',
+                    label: 'Comparison starts',
                     value: result.acquisitionMonth
                       ? horizonLabel(result.acquisitionMonth)
-                      : 'Not within the horizon',
+                      : 'Saving does not reach the car',
                   },
-                  ...(result.acquisitionMonth
-                    ? [
-                        {
-                          label: 'Lessee saves during the lease',
-                          value: signedMonthly(lesseeSaving),
-                        },
-                      ]
-                    : []),
                 ]
               : []),
             ...(input.buyAfterLease
@@ -339,15 +330,10 @@ export function LeasingTool() {
   );
 }
 
-function signedMonthly(amount: number): string {
-  if (amount >= 0) return `${formatEur(amount)} / month`;
-  return `Draws ${formatEur(-amount)} / month`;
-}
-
 function narrativeDetail(input: LeasingInput, result: LeasingResult): string {
   const rate = formatPercentPoints(input.msciReturnPercent, 1);
   const opening = input.sameStartingCapital
-    ? `Both start at 0 € and save ${formatEur(input.monthlySavings)} a month into an MSCI World ETF at ${rate}. The finish differs from the default because those saving years are part of the horizon: the buyer then spends the ETF on the car, and the lessee keeps that sum invested while saving less.`
+    ? `Both save ${formatEur(input.monthlySavings)} a month from 0 € until they have the car money. The comparison then runs for the same ${formatNumber(input.horizonYears)} years, so the finish matches leaving this off.`
     : `Both already have the car money. The buyer owns the car immediately. The lessee invests what they did not have to spend, at ${rate}, and the monthly difference follows after that.`;
   const replacement =
     input.ownershipYears < input.horizonYears
@@ -390,11 +376,10 @@ function LeasingMethod() {
           return chart leaves the new savings out.
         </p>
         <p>
-          “Save up from 0 €” is the other opening. Both pay the same monthly saving into
-          the ETF until it can cover the price plus registration, after exit tax. The buyer
-          sells shares and buys the car. The lessee keeps the shares, starts the lease, and
-          from then on invests only what the lease, transfer fee, and upkeep do not take.
-          If that bill is larger than the saving, the difference is sold out of the ETF.
+          “Save up from 0 €” draws that path in front of the same comparison. Both save
+          until they have the opening cash, then the buyer buys and the lessee invests,
+          exactly as with the option off. The finish is therefore the same. The monthly
+          saving only decides how long the chart runs before the comparison.
         </p>
         <p>
           The buyer sells the car after the number of years you set and buys another at the
@@ -404,8 +389,10 @@ function LeasingMethod() {
           price × leasing factor / 100. A new contract starts every term, with another
           special payment and transfer fee, unless the lessee buys the car at the end of the
           first contract. The buyout defaults to the car’s depreciated value and is paid
-          from the lessee’s ETF. From then on the lessee pays owner upkeep and the car
-          counts in their net worth. If the horizon cuts a contract short, the model keeps
+          from the lessee’s ETF. Buying is left unchanged. From then on the lessee owns
+          the car and keeps the money they no longer spend on the lease. A purchase that
+          the ETF cannot cover is skipped, so wealth does not go negative. If the horizon
+          cuts a contract short, the model keeps
           charging the monthly rate and does not add an early-return penalty.
         </p>
         <p>
