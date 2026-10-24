@@ -36,7 +36,7 @@ export const tools: ToolMeta[] = [
     channel: 'vehicle.lease',
     eyebrow: 'Car',
     summary:
-      'Buy a car for cash, or lease the same car and invest the free capital in an MSCI World ETF. Depreciation and the lease follow German market conventions.',
+      'Buy a car for cash, or lease the same car and invest the free capital in an MSCI World ETF. Replace the car on a schedule, buy it when the lease ends, or have both lives save up from zero.',
     outcome: 'The same wealth and cash comparison as the flat, applied to a car.',
   },
 ];

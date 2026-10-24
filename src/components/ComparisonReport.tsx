@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Side } from '../platform/narrate';
-import { COMPARE } from '../platform/palette';
+import { COMPARE, TRACE } from '../platform/palette';
 import {
   ChartCard,
   LineMoneyChart,
@@ -31,6 +31,12 @@ export function ComparisonReport({
   cashCaption,
   rows,
   methodology,
+  rightEquityLabel,
+  rightEquityColor = TRACE.cyan,
+  etfBalances,
+  etfCaption,
+  gain,
+  gainCaption,
 }: {
   tone: Side;
   title: string;
@@ -51,9 +57,25 @@ export function ComparisonReport({
   cashCaption: string;
   rows: Array<{ label: string; left: string; right: string }>;
   methodology: ReactNode;
+  rightEquityLabel?: string;
+  rightEquityColor?: string;
+  etfBalances?: MoneyPoint[];
+  etfCaption?: string;
+  gain?: MoneyPoint[];
+  gainCaption?: string;
 }) {
   const lastMonth = netWorth[netWorth.length - 1]?.month ?? 0;
   const ticks = chartTicks(typeof lastMonth === 'number' ? lastMonth : 0);
+  const showRightEquity =
+    Boolean(rightEquityLabel) && allocation.some((row) => Number(row.rightEquity) > 1);
+  const allocationSeries = [
+    { key: 'equity', name: equityLabel, color: equityColor, stack: 'left' },
+    { key: 'leftEtf', name: leftEtfLabel, color: COMPARE.etf, stack: 'left' },
+    ...(showRightEquity
+      ? [{ key: 'rightEquity', name: rightEquityLabel ?? '', color: rightEquityColor, stack: 'right' }]
+      : []),
+    { key: 'rightEtf', name: rightEtfLabel, color: rightColor, stack: 'right' },
+  ];
 
   return (
     <div className="results">
@@ -88,15 +110,32 @@ export function ComparisonReport({
         title="Capital allocation"
         caption="Where the wealth sits. Each year has two stacks, one per life."
       >
-        <StackedBarChart
-          data={allocation}
-          series={[
-            { key: 'equity', name: equityLabel, color: equityColor, stack: 'left' },
-            { key: 'leftEtf', name: leftEtfLabel, color: COMPARE.etf, stack: 'left' },
-            { key: 'rightEtf', name: rightEtfLabel, color: rightColor, stack: 'right' },
-          ]}
-        />
+        <StackedBarChart data={allocation} series={allocationSeries} />
       </ChartCard>
+      {etfBalances && etfBalances.length > 0 ? (
+        <ChartCard title="ETF after exit tax" caption={etfCaption}>
+          <LineMoneyChart
+            data={etfBalances}
+            ticks={ticks}
+            series={[
+              { key: 'left', name: leftEtfLabel, color: leftColor },
+              { key: 'right', name: rightEtfLabel, color: rightColor },
+            ]}
+          />
+        </ChartCard>
+      ) : null}
+      {gain && gain.length > 0 ? (
+        <ChartCard title="ETF return after tax" caption={gainCaption}>
+          <LineMoneyChart
+            data={gain}
+            ticks={ticks}
+            series={[
+              { key: 'left', name: leftEtfLabel, color: leftColor },
+              { key: 'right', name: rightEtfLabel, color: rightColor },
+            ]}
+          />
+        </ChartCard>
+      ) : null}
       <ChartCard title="Monthly cash" caption={cashCaption}>
         <LineMoneyChart
           data={cash}

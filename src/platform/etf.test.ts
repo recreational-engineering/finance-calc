@@ -65,6 +65,31 @@ describe('EtfAccount', () => {
     expect(account.costBasisUplift).toBe(0);
   });
 
+  it('raises a chosen after-tax amount and leaves the rest of the gain untouched', () => {
+    const account = new EtfAccount(
+      taxSettings({ enabled: true, basiszinsPercent: 0, allowance: 0 }),
+    );
+    account.deposit(10_000, false);
+    account.yearStartValue = account.value;
+    account.value = 12_000;
+    const beforeTax = account.exitTax();
+    const net = account.withdrawNet(3_000);
+    expect(net).toBeCloseTo(3_000, 4);
+    const soldFraction = 1 - account.contributions / 10_000;
+    expect(account.exitTax()).toBeCloseTo(beforeTax * (1 - soldFraction), 3);
+    expect(account.afterTaxValue() + net).toBeCloseTo(12_000 - beforeTax, 3);
+  });
+
+  it('returns principal without tax when the fund has not gained', () => {
+    const account = new EtfAccount(
+      taxSettings({ enabled: false, basiszinsPercent: 3.2, allowance: 0 }),
+    );
+    account.deposit(1_000, false);
+    expect(account.withdrawNet(400)).toBeCloseTo(400, 6);
+    expect(account.value).toBeCloseTo(600, 6);
+    expect(account.contributions).toBeCloseTo(600, 6);
+  });
+
   it('skips tax entirely when the setting is off', () => {
     const account = new EtfAccount(
       taxSettings({ enabled: false, basiszinsPercent: 3.2, allowance: 0 }),

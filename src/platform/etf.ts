@@ -98,10 +98,53 @@ export class EtfAccount {
   }
 
   exitTax(): number {
-    if (!this.tax.enabled) return 0;
-    const gain = Math.max(0, this.value - this.contributions - this.costBasisUplift);
+    return this.previewSale(1).tax;
+  }
+
+  /**
+   * Sell a slice of the position, average cost, and return the cash left after
+   * exit tax. A full sale is used when the position cannot cover `netNeeded`.
+   */
+  withdrawNet(netNeeded: number): number {
+    if (!(netNeeded > 0) || !(this.value > 0)) return 0;
+    if (this.afterTaxValue() <= netNeeded + 0.000_001) return this.applySale(1);
+    let low = 0;
+    let high = 1;
+    for (let step = 0; step < 48; step += 1) {
+      const mid = (low + high) / 2;
+      if (this.previewSale(mid).net >= netNeeded) high = mid;
+      else low = mid;
+    }
+    return this.applySale(high);
+  }
+
+  private previewSale(fraction: number): { tax: number; allowanceUsed: number; net: number } {
+    const f = Math.min(1, Math.max(0, fraction));
+    const gross = this.value * f;
+    if (!this.tax.enabled || !(gross > 0)) return { tax: 0, allowanceUsed: 0, net: gross };
+    const gain = Math.max(0, this.value - this.contributions - this.costBasisUplift) * f;
     const taxableBase = gain * (1 - this.tax.teilfreistellung);
     const room = Math.max(0, this.tax.allowance - this.allowanceUsedThisYear);
-    return Math.max(0, taxableBase - room) * this.tax.taxRate;
+    const allowanceUsed = Math.min(room, taxableBase);
+    const tax = Math.max(0, taxableBase - allowanceUsed) * this.tax.taxRate;
+    return { tax, allowanceUsed, net: Math.max(0, gross - tax) };
+  }
+
+  private applySale(fraction: number): number {
+    const f = Math.min(1, Math.max(0, fraction));
+    const sale = this.previewSale(f);
+    this.value = Math.max(0, this.value * (1 - f));
+    this.contributions = Math.max(0, this.contributions * (1 - f));
+    this.costBasisUplift = Math.max(0, this.costBasisUplift * (1 - f));
+    this.contributionsThisYear = Math.max(0, this.contributionsThisYear * (1 - f));
+    this.taxesPaid += sale.tax;
+    this.allowanceUsedThisYear += sale.allowanceUsed;
+    if (this.value < 0.005) {
+      this.value = 0;
+      this.contributions = 0;
+      this.costBasisUplift = 0;
+      this.contributionsThisYear = 0;
+    }
+    return sale.net;
   }
 }
