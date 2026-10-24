@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
+import { ChartCard, GrowthCompareChart } from '../../components/Charts';
 import { Facts, FieldGroup, NumberField, StatusLine, Warnings } from '../../components/Fields';
-import { formatPercentPoints, formatShare } from '../../platform/format';
+import { formatPercentPoints } from '../../platform/format';
 import { useStoredState } from '../../platform/storage';
 import {
   ASSUMPTIONS_KEY,
@@ -16,7 +17,7 @@ import {
   searchEtfs,
   type EtfProduct,
 } from './catalog';
-import { estimateEtf, planningRatePercent, type EtfEstimate } from './model';
+import { estimateEtf, growthComparison, planningRatePercent, type EtfEstimate } from './model';
 
 const GROUPS = [
   { id: 'all', label: 'All' },
@@ -238,10 +239,10 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
         <h2>{formatPercentPoints(planningRatePercent(estimate), 2)} a year</h2>
         <p>
           Planning rate for {product.shortName}. Retirement inserts this number as the
-          yearly interest.           It is a nominal euro return before German fund tax.
+          yearly interest. It is a nominal euro return before German fund tax.
           {estimate.blendsHistory
-            ? ` History has a ${formatShare(estimate.historyWeight)} weight. The rest is the forward build.`
-            : ' The forward build is the whole rate.'}
+            ? ` It stays within 1,25 percentage points of the historic long-term rate.`
+            : ' This fund has no long history on file, so the rate is the forward build.'}
         </p>
       </div>
       <dl className="stats">
@@ -258,6 +259,18 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
           <dd>{formatPercentPoints(planningRatePercent(estimate), 2)}</dd>
         </div>
       </dl>
+      {history != null && estimate.historyYears >= 8 ? (
+        <ChartCard
+          title="Historic rate and estimate"
+          caption={`€10,000 compounded over ${estimate.historyYears.toLocaleString('de-DE', { maximumFractionDigits: 1 })} years at the historic long-term rate and at the planning rate.`}
+        >
+          <GrowthCompareChart
+            data={growthComparison(history, estimate.planningPercent, estimate.historyYears)}
+          />
+        </ChartCard>
+      ) : (
+        <p className="hint lone-hint">No long history is on file, so there is no historic curve to compare.</p>
+      )}
       {estimate.historyLabel ? <p className="hint lone-hint">{estimate.historyLabel}</p> : null}
       {estimate.recent ? (
         <p className="hint lone-hint">
@@ -351,8 +364,8 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
           <p>
             History is a long euro total return where one is on file: MSCI factsheets back to
             the end of 2000, or a fund’s own monthly prices when that series is the long one.
-            A window that starts after 2008 is labelled and, when a longer one exists, kept out
-            of the blend.
+            The planning rate is 85% that history and 15% the forward build, and it is not
+            allowed to sit more than 1,25 percentage points away from the history.
           </p>
           <p>
             The forward line for equities is dividend yield, net buybacks, real growth, euro
@@ -365,9 +378,8 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
             A daily-reset multiple does not multiply the return. The bridge is leverage times
             the index, minus a variance drag of one-half L times (L − 1) times variance, minus
             financing on the borrowed part, minus the TER once. Past history is restated with
-            the lower financing rate. The planning rate is half history once the window reaches
-            25 years, 40% from 15 years, and 25% from 8 years. Shorter than that, or any bond,
-            and the planning rate is the forward line alone.
+            the lower financing rate. A history shorter than eight years is shown with the
+            fund’s recent price changes and is not used as the long-term rate.
           </p>
           <p>
             Figures are nominal, in euro, before Vorabpauschale and Abgeltungsteuer. This is a
