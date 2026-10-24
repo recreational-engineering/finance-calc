@@ -5,7 +5,10 @@ import { classifyEtf } from './classify';
 import { EXPOSURES } from './exposures';
 import {
   estimateEtf,
+  fitPlanningRate,
+  growthComparison,
   historyBlendWeight,
+  HISTORY_FIT_GAP,
   leverageBridge,
   planningRatePercent,
   valuationAnnualPercent,
@@ -34,12 +37,32 @@ describe('leverageBridge', () => {
     expect(drag).toBeGreaterThan(-1);
   });
 
-  it('ignores a short history and ignores bond history entirely', () => {
+  it('fits a long history and ignores a short one', () => {
     expect(historyBlendWeight('equity', 3, true)).toBe(0);
-    expect(historyBlendWeight('equity', 26, true)).toBe(0.5);
-    expect(historyBlendWeight('gold', 17, true)).toBe(0.4);
-    expect(historyBlendWeight('bond', 30, true)).toBe(0);
+    expect(historyBlendWeight('equity', 26, true)).toBe(0.85);
+    expect(historyBlendWeight('gold', 17, true)).toBe(0.85);
+    expect(historyBlendWeight('bond', 30, true)).toBe(0.85);
     expect(historyBlendWeight('equity', 30, false)).toBe(0);
+  });
+
+  it('pulls a far forward build back to within the history gap', () => {
+    expect(fitPlanningRate(10, 10, 20)).toBeCloseTo(10, 6);
+    expect(fitPlanningRate(10, 9, 20)).toBeCloseTo(9.85, 6);
+    expect(fitPlanningRate(10, 0, 20)).toBeCloseTo(10 - HISTORY_FIT_GAP, 6);
+    expect(fitPlanningRate(10, 30, 20)).toBeCloseTo(10 + HISTORY_FIT_GAP, 6);
+    expect(fitPlanningRate(10, 0, 4)).toBe(0);
+    expect(fitPlanningRate(null, 4, 20)).toBe(4);
+  });
+
+  it('compounds both rates from the same starting euro amount', () => {
+    const path = growthComparison(8, 6, 10, 10_000);
+    expect(path[0].historic).toBe(10_000);
+    expect(path[0].estimate).toBe(10_000);
+    const end = path[path.length - 1];
+    expect(end.year).toBeCloseTo(10, 6);
+    expect(end.historic).toBeCloseTo(10_000 * Math.pow(1.08, 10), 4);
+    expect(end.estimate).toBeCloseTo(10_000 * Math.pow(1.06, 10), 4);
+    expect(end.historic).toBeGreaterThan(end.estimate);
   });
 });
 
@@ -108,9 +131,10 @@ describe('estimateEtf', () => {
       const estimate = estimateEtf(product);
       const summed = estimate.lines.reduce((total, line) => total + line.annualPercent, 0);
       expect(summed).toBeCloseTo(estimate.forwardPercent, 6);
-      const weight = estimate.historyWeight;
-      const expected = weight * (estimate.historyPercent ?? 0) + (1 - weight) * estimate.forwardPercent;
-      expect(estimate.planningPercent).toBeCloseTo(expected, 6);
+      expect(estimate.planningPercent).toBeCloseTo(
+        fitPlanningRate(estimate.historyPercent, estimate.forwardPercent, estimate.historyYears),
+        6,
+      );
     }
   });
 
@@ -142,25 +166,23 @@ describe('estimateEtf', () => {
     expect(estimateEtf(bond).historyWeight).toBe(0);
   });
 
-  it('keeps gold and the young metals fund below their exciting recent windows', () => {
+  it('keeps a long history and does not copy a three-year boom', () => {
     const goldEstimate = estimateEtf(gold);
     expect(goldEstimate.historyPercent).not.toBeNull();
-    expect(goldEstimate.planningPercent).toBeLessThan(goldEstimate.historyPercent ?? 0);
-    expect(goldEstimate.planningPercent).toBeGreaterThan(2);
-    expect(goldEstimate.planningPercent).toBeLessThan(8);
+    expect(Math.abs(goldEstimate.planningPercent - (goldEstimate.historyPercent ?? 0))).toBeLessThanOrEqual(HISTORY_FIT_GAP + 1e-9);
 
     const metalsEstimate = estimateEtf(metals);
     expect(metalsEstimate.historyWeight).toBe(0);
     expect(metalsEstimate.planningPercent).toBeCloseTo(metalsEstimate.forwardPercent, 6);
     expect(metalsEstimate.planningPercent).toBeLessThan(10);
-    expect(metalsEstimate.planningPercent).toBeGreaterThan(0);
   });
 
   it('uses the long world history rather than the post-crash decade', () => {
     const estimate = estimateEtf(world);
     expect(estimate.historyYears).toBeGreaterThan(25);
     expect(estimate.recent?.annualPercent).toBeGreaterThan(estimate.historyPercent ?? 0);
-    expect(estimate.historyWeight).toBe(0.5);
+    expect(estimate.historyWeight).toBe(0.85);
+    expect(Math.abs(estimate.planningPercent - (estimate.historyPercent ?? 0))).toBeLessThanOrEqual(HISTORY_FIT_GAP + 1e-9);
   });
 
   it('locks the default planning rates for the retirement portfolio', () => {
@@ -172,11 +194,11 @@ describe('estimateEtf', () => {
       DE000A0S9GB0: planningRatePercent(estimateEtf(gold)),
     };
     expect(rates).toEqual({
-      FR0014010HV4: 6.19,
-      IE00BM67HM91: 6.8,
+      FR0014010HV4: 7.97,
+      IE00BM67HM91: 9.72,
       IE000ROSD5J6: 4.5,
-      LU1861132840: 6.53,
-      DE000A0S9GB0: 4.68,
+      LU1861132840: 13.75,
+      DE000A0S9GB0: 8.1,
     });
   });
 });

@@ -3,9 +3,9 @@ import { ComparisonReport } from '../../components/ComparisonReport';
 import type { MoneyPoint } from '../../components/Charts';
 import {
   CheckField,
-  Facts,
   FieldGroup,
   NumberField,
+  SettingsPanel,
   Warnings,
 } from '../../components/Fields';
 import { formatEur, formatPercentPoints } from '../../platform/format';
@@ -71,17 +71,11 @@ export function RentTool() {
 
   return (
     <article className="workspace">
-      <section className="panel">
-        <header className="panel-intro">
-          <p className="panel-kicker">Parameters</p>
-          <p>
-            Buy the flat, or rent it and put the free capital into an MSCI World ETF.
-            Defaults follow Munich asking prices and new-lease rents for an existing
-            apartment in the first half of 2026.
-          </p>
-        </header>
+      <SettingsPanel>
+        <FieldGroup title="Horizon">
+          <NumberField label="Years" value={input.horizonYears} min={1} max={50} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
+        </FieldGroup>
         <FieldGroup title="The flat">
-          <NumberField label="Horizon" value={input.horizonYears} min={1} max={50} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
           <NumberField label="Living area" value={input.areaSqm} min={1} step={1} unit="m²" onChange={(v) => set('areaSqm', v)} />
           <NumberField label="Purchase price" value={input.pricePerSqm} min={0} step={50} unit="€/m²" onChange={(v) => set('pricePerSqm', v)} />
           <NumberField label="Cold rent" value={input.coldRentPerSqm} min={0} step={0.1} unit="€/m²" hint="Monthly net cold rent for a new lease." onChange={(v) => set('coldRentPerSqm', v)} />
@@ -96,26 +90,23 @@ export function RentTool() {
           <NumberField label="Rent growth" value={input.rentGrowthPercent} step={0.1} unit="% / year" hint="Once a year, as on an existing lease." onChange={(v) => set('rentGrowthPercent', v)} />
           <NumberField label="MSCI World return" value={input.msciReturnPercent} step={0.1} unit="% / year" hint="Nominal, before German fund tax. Lower it to include the fund fee." onChange={(v) => set('msciReturnPercent', v)} />
         </FieldGroup>
-        <details className="method" open>
-          <summary>Purchase costs and upkeep</summary>
-          <div className="fields">
-            <NumberField label="Transfer tax" value={input.transferTaxPercent} min={0} step={0.1} unit="%" hint="Grunderwerbsteuer, 3.5% in Bavaria." onChange={(v) => set('transferTaxPercent', v)} />
-            <NumberField label="Notary and register" value={input.notaryPercent} min={0} step={0.1} unit="%" onChange={(v) => set('notaryPercent', v)} />
-            <NumberField label="Buyer broker fee" value={input.brokerPercent} min={0} step={0.01} unit="%" hint="Usually 3.57% incl. VAT when the fee is split." onChange={(v) => set('brokerPercent', v)} />
-            <NumberField label="Maintenance" value={input.maintenancePerSqmMonth} min={0} step={0.1} unit="€/m²" hint="Per month. Reserve and special assessments." onChange={(v) => set('maintenancePerSqmMonth', v)} />
-            <NumberField label="Admin" value={input.adminMonthly} min={0} step={1} unit="€ / month" onChange={(v) => set('adminMonthly', v)} />
-            <NumberField label="Property tax" value={input.grundsteuerMonthly} min={0} step={1} unit="€ / month" hint="Grundsteuer. Highly specific after the 2025 reform." onChange={(v) => set('grundsteuerMonthly', v)} />
-            <NumberField label="Building insurance" value={input.insuranceMonthly} min={0} step={1} unit="€ / month" onChange={(v) => set('insuranceMonthly', v)} />
-            <NumberField label="Inflation of owner costs" value={input.ownerCostInflationPercent} step={0.1} unit="% / year" onChange={(v) => set('ownerCostInflationPercent', v)} />
-            <NumberField label="Cost of selling" value={input.sellingCostPercent} min={0} step={0.01} unit="%" onChange={(v) => set('sellingCostPercent', v)} />
-            <CheckField
-              label="Subtract selling costs from the flat"
-              checked={input.assumeSale}
-              hint="Marks the flat to a cash value, so it can be compared with the ETF."
-              onChange={(v) => set('assumeSale', v)}
-            />
-          </div>
-        </details>
+        <FieldGroup title="Purchase costs and upkeep" collapsed>
+          <NumberField label="Transfer tax" value={input.transferTaxPercent} min={0} step={0.1} unit="%" hint="Grunderwerbsteuer, 3.5% in Bavaria." onChange={(v) => set('transferTaxPercent', v)} />
+          <NumberField label="Notary and register" value={input.notaryPercent} min={0} step={0.1} unit="%" onChange={(v) => set('notaryPercent', v)} />
+          <NumberField label="Buyer broker fee" value={input.brokerPercent} min={0} step={0.01} unit="%" hint="Usually 3.57% incl. VAT when the fee is split." onChange={(v) => set('brokerPercent', v)} />
+          <NumberField label="Maintenance" value={input.maintenancePerSqmMonth} min={0} step={0.1} unit="€/m²" hint="Per month. Reserve and special assessments." onChange={(v) => set('maintenancePerSqmMonth', v)} />
+          <NumberField label="Admin" value={input.adminMonthly} min={0} step={1} unit="€ / month" onChange={(v) => set('adminMonthly', v)} />
+          <NumberField label="Property tax" value={input.grundsteuerMonthly} min={0} step={1} unit="€ / month" hint="Grundsteuer. Highly specific after the 2025 reform." onChange={(v) => set('grundsteuerMonthly', v)} />
+          <NumberField label="Building insurance" value={input.insuranceMonthly} min={0} step={1} unit="€ / month" onChange={(v) => set('insuranceMonthly', v)} />
+          <NumberField label="Inflation of owner costs" value={input.ownerCostInflationPercent} step={0.1} unit="% / year" onChange={(v) => set('ownerCostInflationPercent', v)} />
+          <NumberField label="Cost of selling" value={input.sellingCostPercent} min={0} step={0.01} unit="%" onChange={(v) => set('sellingCostPercent', v)} />
+          <CheckField
+            label="Subtract selling costs"
+            checked={input.assumeSale}
+            hint="Marks the flat to a cash value, so it can be compared with the ETF."
+            onChange={(v) => set('assumeSale', v)}
+          />
+        </FieldGroup>
         <TaxFields
           apply={input.applyEtfTax}
           basis={input.basiszinsPercent}
@@ -124,23 +115,12 @@ export function RentTool() {
           onBasis={(v) => set('basiszinsPercent', v)}
           onAllowance={(v) => set('allowance', v)}
         />
-        <Facts
-          items={[
-            { label: 'Purchase price', value: formatEur(result.purchasePrice) },
-            { label: 'Closing costs', value: formatEur(result.closingCosts) },
-            { label: 'Cash to buy', value: formatEur(result.initialCash) },
-            { label: 'Loan', value: formatEur(result.loan) },
-            { label: 'Monthly mortgage', value: formatEur(result.monthlyMortgage, 2) },
-            { label: 'Starting cold rent', value: formatEur(result.startingRent, 2) },
-            { label: 'Loan paid off', value: payoffLabel(result.payoffMonth, result.loan) },
-          ]}
-        />
         <div className="row-actions">
           <button type="button" className="secondary" onClick={reset}>
             Reset Munich defaults
           </button>
         </div>
-      </section>
+      </SettingsPanel>
       {result.points.length > 0 ? (
         <ComparisonReport
           tone={narrative.tone}
@@ -163,7 +143,16 @@ export function RentTool() {
           equityLabel="Flat after sale costs"
           leftEtfLabel="Buyer’s ETF"
           rightEtfLabel="Renter’s ETF"
-          cashCaption="Monthly housing cash after move-in. The down payment and closing costs are the buying spike at the start, shown in the facts rather than on this line."
+          cashCaption="Monthly housing cash after move-in. The down payment and closing costs are in the readouts above."
+          facts={[
+            { label: 'Purchase price', value: formatEur(result.purchasePrice) },
+            { label: 'Closing costs', value: formatEur(result.closingCosts) },
+            { label: 'Cash to buy', value: formatEur(result.initialCash) },
+            { label: 'Loan', value: formatEur(result.loan) },
+            { label: 'Monthly mortgage', value: formatEur(result.monthlyMortgage, 2) },
+            { label: 'Starting cold rent', value: formatEur(result.startingRent, 2) },
+            { label: 'Loan paid off', value: payoffLabel(result.payoffMonth, result.loan) },
+          ]}
           rows={[
             { label: 'Net worth', left: formatEur(result.finalBuyerNet), right: formatEur(result.finalRenterNet) },
             { label: 'Flat after the loan and sale costs', left: formatEur(result.points[result.points.length - 1].equityNet), right: '—' },
@@ -217,19 +206,16 @@ function TaxFields({
   onAllowance: (value: number) => void;
 }) {
   return (
-    <details className="method">
-      <summary>German ETF tax</summary>
-      <div className="fields">
-        <CheckField
-          label="Apply fund tax"
-          checked={apply}
-          hint="Vorabpauschale while you hold the ETF, and exit tax if you sell. Equity Teilfreistellung 30%, tax 26.375%. No church tax."
-          onChange={onApply}
-        />
-        <NumberField label="Basiszins" value={basis} step={0.01} unit="%" hint="BMF rate for 2026 is 3.20%." onChange={onBasis} />
-        <NumberField label="Sparerpauschbetrag" value={allowance} min={0} step={100} unit="€ / year" onChange={onAllowance} />
-      </div>
-    </details>
+    <FieldGroup title="German ETF tax" collapsed>
+      <CheckField
+        label="Apply fund tax"
+        checked={apply}
+        hint="Vorabpauschale while you hold the ETF, and exit tax if you sell. Equity Teilfreistellung 30%, tax 26.375%. No church tax."
+        onChange={onApply}
+      />
+      <NumberField label="Basiszins" value={basis} step={0.01} unit="%" hint="BMF rate for 2026 is 3.20%." onChange={onBasis} />
+      <NumberField label="Sparerpauschbetrag" value={allowance} min={0} step={100} unit="€ / year" onChange={onAllowance} />
+    </FieldGroup>
   );
 }
 

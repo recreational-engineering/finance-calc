@@ -20,7 +20,7 @@ export function App() {
   return (
     <HashRouter>
       <Shell>
-        <Suspense fallback={<p className="empty">Loading dashboard…</p>}>
+        <Suspense fallback={<p className="empty">Loading tool…</p>}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/retirement" element={<RetirementTool />} />
