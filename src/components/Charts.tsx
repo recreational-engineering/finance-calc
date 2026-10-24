@@ -209,6 +209,67 @@ export function LineMoneyChart({
   );
 }
 
+export function GrowthCompareChart({
+  data,
+}: {
+  data: Array<{ year: number; label: string; historic: number; estimate: number }>;
+}) {
+  const last = data[data.length - 1]?.year ?? 0;
+  const step = last >= 20 ? 5 : last >= 10 ? 2 : 1;
+  const ticks = [0];
+  for (let year = step; year < last - 0.05; year += step) ticks.push(year);
+  if (last > 0) ticks.push(last);
+  return (
+    <div className="chart-box">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+          <CartesianGrid stroke="#1c1c1c" vertical={false} />
+          <XAxis
+            dataKey="year"
+            type="number"
+            domain={[0, 'dataMax']}
+            ticks={ticks}
+            tick={axisTick}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(year: number) => (year === 0 ? 'Start' : String(Math.round(year)))}
+            stroke="#1c1c1c"
+          />
+          <YAxis
+            tick={axisTick}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={formatAxisEur}
+            width={72}
+            stroke="#1c1c1c"
+            domain={[0, 'auto']}
+          />
+          <Tooltip content={<MoneyTooltip />} />
+          <Legend wrapperStyle={legendStyle} formatter={legendFormatter} />
+          <Line
+            type="monotone"
+            dataKey="historic"
+            name="Historic rate"
+            stroke="#4c8dff"
+            strokeWidth={1.75}
+            dot={false}
+            isAnimationActive={false}
+          />
+          <Line
+            type="monotone"
+            dataKey="estimate"
+            name="Estimate"
+            stroke="#ff7a45"
+            strokeWidth={1.75}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function StackedAreaChart({
   data,
   series,

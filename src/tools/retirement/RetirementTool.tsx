@@ -34,7 +34,7 @@ import {
 
 export function RetirementTool() {
   const [input, setInput, reset] = useStoredState(
-    'klarwert:v2:retirement',
+    'klarwert:v3:retirement',
     DEFAULT_RETIREMENT,
     reviveRetirement,
   );
