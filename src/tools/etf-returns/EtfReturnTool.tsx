@@ -22,7 +22,7 @@ const GROUPS = [
   { id: 'all', label: 'All' },
   { id: 'equity', label: 'Equities' },
   { id: 'bonds', label: 'Bonds' },
-  { id: 'real', label: 'Gold and commodities' },
+  { id: 'real', label: 'Gold' },
   { id: 'levered', label: 'Leveraged' },
 ] as const;
 
@@ -83,114 +83,117 @@ export function EtfReturnTool() {
     setAssumptions((current) => ({ ...current, ...partial }));
   };
 
+  const showingExample = !query.trim() && group === 'all';
+  const poolCount = etfProducts.filter((item) => inGroup(item, group)).length;
+  const listHint = showingExample
+    ? `${etfProducts.length} listings. These rows are the retirement example.`
+    : listed.length === 0
+      ? 'Nothing in this asset class matches.'
+      : `${listed.length} of ${poolCount}`;
+
   return (
     <article className="workspace">
-      <section className="panel">
-        <header className="panel-intro">
-          <p className="panel-kicker">Parameters</p>
-          <p>
-            Pick an ETF or ETC from the DKB list. The planning rate mixes a long
-            history with a forward build from dividends, growth, inflation, and
-            today’s prices. Retirement uses that rate as the interest.
-          </p>
-        </header>
-        <label className="field" htmlFor="etf-query">
-          <span className="field-label">Search the DKB list</span>
-          <span className="field-control">
-            <input
-              id="etf-query"
-              value={query}
-              placeholder="Name, ISIN, or WKN"
-              autoComplete="off"
-              onChange={(event) => setQuery(event.target.value)}
-            />
-          </span>
-        </label>
-        <div className="chip-row" role="group" aria-label="Filter">
-          {GROUPS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={group === item.id}
-              onClick={() => setGroup(item.id)}
-            >
-              {item.label}
-            </button>
-          ))}
-        </div>
-        <ul className="etf-hits">
-          {(query.trim() || group !== 'all' ? listed : shortcuts).map((item) => (
-            <Hit
-              key={item.isin}
-              product={item}
-              assumptions={assumptions}
-              selected={item.isin === product.isin}
-              onPick={(next) => setSelection({ isin: next.isin })}
-            />
-          ))}
-          {query.trim() && listed.length === 0 ? <li className="etf-empty">Nothing in this filter matches.</li> : null}
-        </ul>
-        <p className="hint">
-          {etfProducts.length} listings. {etfProducts.filter((item) => item.sparplan).length} are on the DKB
-          sparplan snapshot, and three more are depot listings in the retirement example.
-          {query.trim() || group !== 'all'
-            ? ` Showing ${listed.length} of ${etfProducts.filter((item) => inGroup(item, group)).length}.`
-            : ' The five rows are that example.'}
-        </p>
-        <details className="method">
-          <summary>Market assumptions</summary>
-          <FieldGroup title="October 2026 starting point">
-            <NumberField
-              label="Euro inflation"
-              value={assumptions.inflationPercent}
-              step={0.1}
-              unit="%"
-              onChange={(inflationPercent) => patch({ inflationPercent })}
-            />
-            <NumberField
-              label="Valuation horizon"
-              value={assumptions.horizonYears}
-              min={5}
-              max={60}
-              step={1}
-              unit="years"
-              onChange={(horizonYears) => patch({ horizonYears })}
-            />
-            <NumberField
-              label="Leverage financing"
-              value={assumptions.financingPercent}
-              step={0.1}
-              unit="%"
-              hint="SOFR was 3.90% on 22 Oct 2026. The extra 0.50 is a swap spread."
-              onChange={(financingPercent) => patch({ financingPercent })}
-            />
-            <NumberField
-              label="Financing in the history"
-              value={assumptions.historyFinancingPercent}
-              step={0.1}
-              unit="%"
-              onChange={(historyFinancingPercent) => patch({ historyFinancingPercent })}
-            />
-            <NumberField
-              label="USD hedge cost"
-              value={assumptions.usdHedgeCostPercent}
-              step={0.01}
-              unit="%"
-              hint="Dollar cash minus euro cash. €STR was 2.44%."
-              onChange={(usdHedgeCostPercent) => patch({ usdHedgeCostPercent })}
-            />
-            <NumberField
-              label="Euro cash yield"
-              value={assumptions.eurCashPercent}
-              step={0.01}
-              unit="%"
-              onChange={(eurCashPercent) => patch({ eurCashPercent })}
-            />
-          </FieldGroup>
+      <section className="panel settings">
+        <section className="setting-group">
+          <h3>Fund</h3>
+          <label className="setting" htmlFor="etf-query">
+            <span className="setting-copy">
+              <span className="setting-label">Search</span>
+              <span className="setting-hint">{listHint}</span>
+            </span>
+            <span className="setting-control">
+              <input
+                id="etf-query"
+                value={query}
+                placeholder="Name, ISIN, or WKN"
+                autoComplete="off"
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </span>
+          </label>
+          <div className="asset-class">
+            <span className="setting-label">Asset class</span>
+            <div className="segment" role="group" aria-label="Asset class">
+              {GROUPS.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  aria-pressed={group === item.id}
+                  title={item.id === 'real' ? 'Gold, commodities, and crypto' : undefined}
+                  onClick={() => setGroup(item.id)}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="setting-columns">
+            <span>Listing</span>
+            <span>Planning rate</span>
+          </div>
+          <ul className="etf-hits">
+            {(showingExample ? shortcuts : listed).map((item) => (
+              <Hit
+                key={item.isin}
+                product={item}
+                assumptions={assumptions}
+                selected={item.isin === product.isin}
+                onPick={(next) => setSelection({ isin: next.isin })}
+              />
+            ))}
+          </ul>
+        </section>
+        <FieldGroup title="Market assumptions" collapsed>
+          <NumberField
+            label="Euro inflation"
+            value={assumptions.inflationPercent}
+            step={0.1}
+            unit="%"
+            onChange={(inflationPercent) => patch({ inflationPercent })}
+          />
+          <NumberField
+            label="Valuation horizon"
+            value={assumptions.horizonYears}
+            min={5}
+            max={60}
+            step={1}
+            unit="years"
+            onChange={(horizonYears) => patch({ horizonYears })}
+          />
+          <NumberField
+            label="Leverage financing"
+            value={assumptions.financingPercent}
+            step={0.1}
+            unit="%"
+            hint="SOFR was 3.90% on 22 Oct 2026. The extra 0.50 is a swap spread."
+            onChange={(financingPercent) => patch({ financingPercent })}
+          />
+          <NumberField
+            label="Financing in the history"
+            value={assumptions.historyFinancingPercent}
+            step={0.1}
+            unit="%"
+            onChange={(historyFinancingPercent) => patch({ historyFinancingPercent })}
+          />
+          <NumberField
+            label="USD hedge cost"
+            value={assumptions.usdHedgeCostPercent}
+            step={0.01}
+            unit="%"
+            hint="Dollar cash minus euro cash. €STR was 2.44%."
+            onChange={(usdHedgeCostPercent) => patch({ usdHedgeCostPercent })}
+          />
+          <NumberField
+            label="Euro cash yield"
+            value={assumptions.eurCashPercent}
+            step={0.01}
+            unit="%"
+            onChange={(eurCashPercent) => patch({ eurCashPercent })}
+          />
           <button type="button" className="secondary" onClick={resetAssumptions}>
             Reset assumptions
           </button>
-        </details>
+        </FieldGroup>
       </section>
       <EstimateView product={product} estimate={estimate} />
     </article>
@@ -212,10 +215,11 @@ function Hit({
   return (
     <li>
       <button type="button" aria-pressed={selected} onClick={() => onPick(product)}>
-        <span>{product.shortName}</span>
-        <small>
-          {product.isin} · {formatPercentPoints(rate, 2)}
-        </small>
+        <span className="hit-copy">
+          <span>{product.shortName}</span>
+          <small className="hit-isin">{product.isin}</small>
+        </span>
+        <small>{formatPercentPoints(rate, 2)}</small>
       </button>
     </li>
   );
@@ -237,10 +241,10 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
         <StatusLine warnings={estimate.cautions} />
         <h2>{formatPercentPoints(planningRatePercent(estimate), 2)} a year</h2>
         <p>
-          Planning rate for {product.shortName}. Retirement inserts this number as the
-          yearly interest.           It is a nominal euro return before German fund tax.
+          Planning rate for {product.shortName}. Retirement uses it as the yearly interest.
+          Nominal, in euro, before German fund tax.
           {estimate.blendsHistory
-            ? ` History has a ${formatShare(estimate.historyWeight)} weight. The rest is the forward build.`
+            ? ` History is ${formatShare(estimate.historyWeight)} of the blend.`
             : ' The forward build is the whole rate.'}
         </p>
       </div>
@@ -252,10 +256,6 @@ function EstimateView({ product, estimate }: { product: EtfProduct; estimate: Et
         <div>
           <dt>Forward</dt>
           <dd>{formatPercentPoints(estimate.forwardPercent, 2)}</dd>
-        </div>
-        <div>
-          <dt>Planning</dt>
-          <dd>{formatPercentPoints(planningRatePercent(estimate), 2)}</dd>
         </div>
       </dl>
       {estimate.historyLabel ? <p className="hint lone-hint">{estimate.historyLabel}</p> : null}

@@ -5,7 +5,14 @@ import {
   chartTicks,
   type MoneyPoint,
 } from '../../components/Charts';
-import { Facts, FieldGroup, NumberField, StatusLine, TextField, Warnings } from '../../components/Fields';
+import {
+  DateField,
+  FieldGroup,
+  NumberField,
+  SettingsPanel,
+  StatusLine,
+  Warnings,
+} from '../../components/Fields';
 import { formatEur, formatPercentPoints, formatShare } from '../../platform/format';
 import { seriesColor } from '../../platform/palette';
 import { useStoredState } from '../../platform/storage';
@@ -42,6 +49,7 @@ export function RetirementTool() {
   }));
   const lastMonth = result.points[result.points.length - 1]?.month ?? 0;
   const endLabel = result.points[result.points.length - 1]?.label ?? '';
+  const notes = [...result.warnings, ...leverageNotes(input.entries, assumptions)];
 
   const patchEntry = (id: string, patch: Partial<SavingsEntry>) => {
     setInput((current) => ({
@@ -52,28 +60,13 @@ export function RetirementTool() {
 
   return (
     <article className="workspace">
-      <section className="panel">
-        <header className="panel-intro">
-          <p className="panel-kicker">Parameters</p>
-          <p>
-            Set the month the plan starts and how many years to run. Pick an ETF from the
-            DKB list to fill the interest with its planning rate, or type a rate of your own.
-            The areas are that entry’s capital.
-          </p>
-        </header>
+      <SettingsPanel>
         <FieldGroup title="Horizon">
-          <label className="field">
-            <span className="field-label">Start date</span>
-            <span className="field-control">
-              <input
-                type="date"
-                value={input.startDate}
-                onChange={(event) =>
-                  setInput((current) => ({ ...current, startDate: event.target.value }))
-                }
-              />
-            </span>
-          </label>
+          <DateField
+            label="Start date"
+            value={input.startDate}
+            onChange={(startDate) => setInput((current) => ({ ...current, startDate }))}
+          />
           <NumberField
             label="Years"
             value={input.years}
@@ -84,74 +77,69 @@ export function RetirementTool() {
             onChange={(years) => setInput((current) => ({ ...current, years }))}
           />
         </FieldGroup>
-        <div className="entry-list">
+        <section className="setting-group">
+          <h3>Entries</h3>
           {input.entries.map((entry, index) => (
-            <fieldset className="entry" key={entry.id}>
-              <legend>
+            <div className="entry-block" key={entry.id}>
+              <div className="entry-head">
                 <i className="swatch" style={{ background: seriesColor(index) }} />
-                Entry {index + 1}
-              </legend>
-              <div className="fields">
-                <EtfSearch
-                  id={`etf-${entry.id}`}
-                  assumptions={assumptions}
-                  onPick={(product) =>
-                    patchEntry(entry.id, {
-                      isin: product.isin,
-                      name: product.shortName,
-                      yearlyInterestPercent: planningRatePercent(estimateEtf(product, assumptions)),
-                    })
-                  }
-                />
-                <LinkedRate
-                  isin={entry.isin}
-                  assumptions={assumptions}
-                  yearlyInterestPercent={entry.yearlyInterestPercent}
-                  onApply={(yearlyInterestPercent) => patchEntry(entry.id, { yearlyInterestPercent })}
-                />
-                <TextField
-                  label="Name"
+                <input
+                  aria-label={`Name of entry ${index + 1}`}
                   value={entry.name}
-                  onChange={(name) => patchEntry(entry.id, { name })}
+                  onChange={(event) => patchEntry(entry.id, { name: event.target.value })}
                 />
-                <NumberField
-                  label="Paid in each month"
-                  value={entry.monthlyPayment}
-                  min={0}
-                  step={25}
-                  unit="€"
-                  onChange={(monthlyPayment) => patchEntry(entry.id, { monthlyPayment })}
-                />
-                <NumberField
-                  label="Expected yearly interest"
-                  value={entry.yearlyInterestPercent}
-                  min={-99}
-                  step={0.01}
-                  unit="%"
-                  onChange={(yearlyInterestPercent) =>
-                    patchEntry(entry.id, { yearlyInterestPercent })
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() =>
+                    setInput((current) => ({
+                      ...current,
+                      entries: current.entries.filter((item) => item.id !== entry.id),
+                    }))
                   }
-                />
+                >
+                  Remove
+                </button>
               </div>
-              <button
-                type="button"
-                className="text-button"
-                onClick={() =>
-                  setInput((current) => ({
-                    ...current,
-                    entries: current.entries.filter((item) => item.id !== entry.id),
-                  }))
+              <EtfSearch
+                id={`etf-${entry.id}`}
+                assumptions={assumptions}
+                selectedIsin={entry.isin}
+                onPick={(product) =>
+                  patchEntry(entry.id, {
+                    isin: product.isin,
+                    name: product.shortName,
+                    yearlyInterestPercent: planningRatePercent(estimateEtf(product, assumptions)),
+                  })
                 }
-              >
-                Remove entry
-              </button>
-            </fieldset>
+              />
+              <NumberField
+                label="Monthly amount"
+                value={entry.monthlyPayment}
+                min={0}
+                step={25}
+                unit="€"
+                onChange={(monthlyPayment) => patchEntry(entry.id, { monthlyPayment })}
+              />
+              <NumberField
+                label="Yearly interest"
+                value={entry.yearlyInterestPercent}
+                min={-99}
+                step={0.01}
+                unit="%"
+                onChange={(yearlyInterestPercent) => patchEntry(entry.id, { yearlyInterestPercent })}
+              />
+              <LinkedRate
+                isin={entry.isin}
+                assumptions={assumptions}
+                yearlyInterestPercent={entry.yearlyInterestPercent}
+                onApply={(yearlyInterestPercent) => patchEntry(entry.id, { yearlyInterestPercent })}
+              />
+            </div>
           ))}
-        </div>
-        <div className="row-actions">
           <button
             type="button"
-            className="primary"
+            className="add-row"
             onClick={() =>
               setInput((current) => ({
                 ...current,
@@ -169,25 +157,27 @@ export function RetirementTool() {
           >
             Add entry
           </button>
+        </section>
+        <div className="row-actions">
           <button type="button" className="secondary" onClick={reset}>
             Reset example
           </button>
         </div>
-      </section>
+      </SettingsPanel>
       <section className="results">
-        <Warnings items={[...result.warnings, ...leverageNotes(input.entries, assumptions)]} />
+        <Warnings items={notes} />
         <div className="verdict tone-left">
-          <StatusLine warnings={result.warnings} />
+          <StatusLine warnings={notes} />
           <h2>{formatEur(result.total)} after {endLabel || 'the horizon'}</h2>
           <p>
-            {formatEur(result.totalContributed)} is money paid in. {formatEur(result.total - result.totalContributed)} is
-            growth. Deposits land at the end of each month, so a payment earns interest from
-            the month after. The yearly rate compounds monthly.
+            {formatEur(result.totalContributed)} paid in, and{' '}
+            {formatEur(result.total - result.totalContributed)} from growth. A deposit earns
+            interest from the next month.
           </p>
         </div>
         <ChartCard
           title={share ? 'Share of capital' : 'Capital by entry'}
-          caption="Each coloured band is one entry. The top of the stack is the total."
+          caption="Each band is one entry. The top of the stack is the total."
           action={
             <div className="toggle" role="group" aria-label="Chart units">
               <button type="button" aria-pressed={!share} onClick={() => setShare(false)}>
@@ -219,8 +209,6 @@ export function RetirementTool() {
             <li key={entry.id}>
               <i style={{ background: seriesColor(entry.colorIndex) }} />
               <span>{entry.name}</span>
-              <b>{formatEur(entry.capital)}</b>
-              <span>{formatShare(entry.fraction)}</span>
             </li>
           ))}
         </ul>
@@ -284,13 +272,6 @@ export function RetirementTool() {
             </table>
           </div>
         </details>
-        <Facts
-          items={[
-            { label: 'Entries', value: String(result.entries.length) },
-            { label: 'Paid in', value: formatEur(result.totalContributed) },
-            { label: 'Growth', value: formatEur(result.total - result.totalContributed) },
-          ]}
-        />
       </section>
     </article>
   );
@@ -326,9 +307,8 @@ function LinkedRate({
   const stale = Math.abs(yearlyInterestPercent - rate) > 0.009;
   const history = estimate.historyPercent;
   return (
-    <p className="hint">
-      {product.isin}
-      {product.freeSparplan ? ' · zero-fee sparplan' : product.sparplan ? ' · DKB sparplan' : ' · DKB depot'}
+    <p className="setting-note">
+      {product.freeSparplan ? 'Zero-fee sparplan' : product.sparplan ? 'DKB sparplan' : 'DKB depot'}
       . History {history == null ? '—' : formatPercentPoints(history, 1)}, forward{' '}
       {formatPercentPoints(estimate.forwardPercent, 1)}.
       {stale ? (
