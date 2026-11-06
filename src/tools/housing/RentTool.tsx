@@ -6,6 +6,7 @@ import {
   FieldGroup,
   NumberField,
   SettingsPanel,
+  ToolWorkspace,
   Warnings,
 } from '../../components/Fields';
 import { formatEur, formatPercentPoints } from '../../platform/format';
@@ -70,7 +71,7 @@ export function RentTool() {
     result.totals.maintenance + result.totals.admin + result.totals.grundsteuer + result.totals.insurance;
 
   return (
-    <article className="workspace">
+    <ToolWorkspace>
       <SettingsPanel>
         <FieldGroup title="Horizon">
           <NumberField label="Years" value={input.horizonYears} min={1} max={50} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
@@ -173,7 +174,7 @@ export function RentTool() {
           <Warnings items={result.warnings} />
         </section>
       )}
-    </article>
+    </ToolWorkspace>
   );
 }
 

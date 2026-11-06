@@ -12,6 +12,7 @@ import {
   NumberField,
   SettingsPanel,
   StatusLine,
+  ToolWorkspace,
   Warnings,
 } from '../../components/Fields';
 import { calendarToday, dayLabel, formatEur, formatPercentPoints, formatShare, monthLabel } from '../../platform/format';
@@ -116,7 +117,7 @@ export function RetirementTool() {
   };
 
   return (
-    <article className="workspace">
+    <ToolWorkspace>
       <SettingsPanel>
         <FieldGroup title="Horizon">
           <DateField
@@ -437,7 +438,7 @@ export function RetirementTool() {
           ]}
         />
       </section>
-    </article>
+    </ToolWorkspace>
   );
 }
 

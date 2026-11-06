@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ChartCard, GrowthCompareChart } from '../../components/Charts';
-import { Facts, FieldGroup, NumberField, SettingsPanel, StatusLine, Warnings } from '../../components/Fields';
+import { Facts, FieldGroup, NumberField, SettingsPanel, StatusLine, ToolWorkspace, Warnings } from '../../components/Fields';
 import { formatPercentPoints } from '../../platform/format';
 import { useStoredState } from '../../platform/storage';
 import {
@@ -126,7 +126,7 @@ export function EtfReturnTool() {
   };
 
   return (
-    <article className="workspace">
+    <ToolWorkspace>
       <SettingsPanel>
         <section className="setting-group">
           <h3>Fund</h3>
@@ -241,7 +241,7 @@ export function EtfReturnTool() {
         </FieldGroup>
       </SettingsPanel>
       <EstimateView product={product} estimate={estimate} />
-    </article>
+    </ToolWorkspace>
   );
 }
 
