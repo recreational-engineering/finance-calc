@@ -285,10 +285,63 @@ code, .mono { font-family: var(--mono); }
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   align-items: stretch;
   overflow: hidden;
+}
+.workspace-open {
+  grid-template-columns: minmax(340px, 420px) minmax(0, 1fr);
+}
+.workspace-open > .panel.settings {
+  grid-column: 1;
+  grid-row: 1;
+}
+.workspace-open > .results-column {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.results-column {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.results-column > .results {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.assumptions-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 8px 16px;
+  background: var(--bg-chrome);
+  border-bottom: 1px solid #1c1c1c;
+}
+.assumptions-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.assumptions-toggle[aria-expanded='true'] {
+  background: #1c1c1c;
+  border-color: #f2f2f2;
+  color: #fff;
+}
+.assumptions-caret {
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 4px 0 4px 5px;
+  border-color: transparent transparent transparent currentColor;
+}
+.assumptions-toggle[aria-expanded='true'] .assumptions-caret {
+  border-width: 5px 4px 0 4px;
+  border-color: currentColor transparent transparent transparent;
 }
 
 .panel.settings {
@@ -905,12 +958,22 @@ tbody tr:hover { background: #121212; }
   .tool-index { margin: -12px; }
   .tool-index-head, .tool-index a { grid-template-columns: 1fr; gap: 2px; }
   .page:has(.workspace) { display: block; overflow: visible; flex: none; }
-  .workspace {
+  .workspace,
+  .workspace.workspace-open {
     display: grid;
     grid-template-columns: 1fr;
     grid-template-rows: none;
     overflow: visible;
     height: auto;
+  }
+  .workspace-open > .panel.settings,
+  .workspace-open > .results-column {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .results-column {
+    overflow: visible;
+    min-height: auto;
   }
   .panel.settings {
     max-height: none;

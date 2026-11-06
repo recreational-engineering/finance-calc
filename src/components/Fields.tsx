@@ -1,4 +1,12 @@
-import { useId, type ReactNode } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useId,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from 'react';
 
 export function ColumnHeader({ left, right }: { left: string; right: string }) {
   return (
@@ -9,12 +17,50 @@ export function ColumnHeader({ left, right }: { left: string; right: string }) {
   );
 }
 
-export function SettingsPanel({ children }: { children: ReactNode }) {
+export function SettingsPanel({ children, id }: { children: ReactNode; id?: string }) {
   return (
-    <section className="panel settings">
+    <section className="panel settings" id={id} aria-label="Assumptions">
       <ColumnHeader left="Setting" right="Value" />
       {children}
     </section>
+  );
+}
+
+export function ToolWorkspace({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const panelId = useId();
+  const items = Children.toArray(children);
+  const settings = items.filter((item) => isValidElement(item) && item.type === SettingsPanel);
+  const results = items.filter((item) => !settings.includes(item));
+
+  return (
+    <article className={open ? 'workspace workspace-open' : 'workspace'}>
+      <div className="results-column">
+        <div className="assumptions-bar">
+          <button
+            type="button"
+            className="secondary assumptions-toggle"
+            aria-expanded={open}
+            aria-controls={panelId}
+            onClick={() => setOpen((current) => !current)}
+          >
+            <span className="assumptions-caret" aria-hidden="true" />
+            {open ? 'Hide assumptions' : 'Edit assumptions'}
+          </button>
+        </div>
+        {results}
+      </div>
+      {open
+        ? settings.map((item, index) =>
+            isValidElement(item)
+              ? cloneElement(item as ReactElement<{ id?: string }>, {
+                  id: panelId,
+                  key: `assumptions-${index}`,
+                })
+              : item,
+          )
+        : null}
+    </article>
   );
 }
 

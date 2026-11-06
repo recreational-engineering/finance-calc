@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { MoneyPoint } from '../../components/Charts';
 import { ComparisonReport } from '../../components/ComparisonReport';
-import { CheckField, FieldGroup, NumberField, SettingsPanel, Warnings } from '../../components/Fields';
+import { CheckField, FieldGroup, NumberField, SettingsPanel, ToolWorkspace, Warnings } from '../../components/Fields';
 import { formatEur, formatNumber, formatPercentPoints, horizonLabel } from '../../platform/format';
 import { COMPARE } from '../../platform/palette';
 import { comparisonNarrative, payoffLabel } from '../../platform/narrate';
@@ -78,7 +78,7 @@ export function LeasingTool() {
   const lesseeUpkeep = result.totals.leaseMaintenance + result.totals.lesseeOwnerMaintenance;
 
   return (
-    <article className="workspace">
+    <ToolWorkspace>
       <SettingsPanel>
         <FieldGroup title="Time">
           <NumberField label="Years" value={input.horizonYears} min={1} max={LEASING_HORIZON_CAP} step={1} unit="years" onChange={(v) => set('horizonYears', v)} />
@@ -326,7 +326,7 @@ export function LeasingTool() {
           <Warnings items={result.warnings} />
         </section>
       )}
-    </article>
+    </ToolWorkspace>
   );
 }
 
